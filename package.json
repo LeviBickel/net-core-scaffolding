@@ -12,27 +12,20 @@
   "activationEvents": [],
     "main": "./dist/extension.js",
     "contributes": {
-        "commands": [
+    "commands": [
+        {
+            "command": "extension.scaffoldMVC",
+            "title": "Scaffold MVC"
+        }
+    ],
+    "menus": {
+        "explorer/context": [
             {
                 "command": "extension.scaffoldMVC",
-                "title": "Scaffold MVC"
+                "when": "resourceExtname == '.cs'",
+                "group": "navigation"
             }
-        ],
-        "menus": {
-            "explorer/context": [
-                {
-                    "command": "extension.scaffoldMVC",
-                    "when": "resourceExtname == '.cs'",
-                    "group": "navigation"
-                }
-            ],
-            "editor/context": [
-                {
-                    "command": "extension.scaffoldMVC",
-                    "when": "resourceExtname == '.cs'",
-                    "group": "navigation"
-                }
-            ]
+        ]
   }
   },
   "scripts": {

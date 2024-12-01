@@ -58,9 +58,74 @@ function installRequiredPackage(projectDir: string, packageName: string): Promis
     });
 }
 
-// Function to get available data contexts (mock function, replace with actual implementation)
-async function getAvailableDataContexts(): Promise<string[]> {
-    return ['None', 'AppDbContext', 'ApplicationDbContext'];  // Example contexts
+// Function to get available data contexts
+async function getAvailableDataContexts(projectDir: string): Promise<string[]> {
+    const dataContexts: string[] = [];
+
+    // Check for DbContext classes in the entire project directory
+    const findDbContextFiles = (dir: string): string[] => {
+        const csFiles: string[] = [];
+        const files = fs.readdirSync(dir);
+
+        files.forEach(file => {
+            const fullPath = path.join(dir, file);
+            const stat = fs.statSync(fullPath);
+
+            if (stat.isDirectory() && file.toLowerCase() !== 'node_modules') {
+                // Recursively search subdirectories
+                csFiles.push(...findDbContextFiles(fullPath));
+            } else if (stat.isFile() && file.endsWith('.cs')) {
+                csFiles.push(fullPath);
+            }
+        });
+
+        return csFiles;
+    };
+
+    // Find all .cs files in the project
+    const csFiles = findDbContextFiles(projectDir);
+
+    // Search through files for DbContext classes
+    for (const filePath of csFiles) {
+        try {
+            const content = fs.readFileSync(filePath, 'utf-8');
+            
+            // Updated regex to catch DbContext inheritance more comprehensively
+            const dbContextRegex = /public\s+class\s+(\w+)\s*:\s*DbContext/;
+            const match = content.match(dbContextRegex);
+            
+            if (match) {
+                // Add the context name with its relative path
+                const relativePath = path.relative(projectDir, filePath);
+                dataContexts.push(`Found in Project: ${match[1]} (${relativePath})`);
+            }
+        } catch (error) {
+            console.error(`Error reading file ${filePath}:`, error);
+        }
+    }
+
+    return dataContexts;
+}
+
+// Function to find the project directory based on the workspace
+function findProjectDirectory(workspacePath: string): string | null {
+    const files = fs.readdirSync(workspacePath);
+    const csprojFile = files.find(file => file.endsWith('.csproj'));
+
+    if (csprojFile) {
+        return workspacePath; // Return the workspace if the .csproj file is found
+    }
+
+    const subdirectories = fs.readdirSync(workspacePath).filter((file) => fs.statSync(path.join(workspacePath, file)).isDirectory());
+    for (const subdir of subdirectories) {
+        const csprojInSubdir = path.join(workspacePath, subdir, '*.csproj');
+        const subFiles = fs.readdirSync(path.join(workspacePath, subdir));
+        if (subFiles.some(file => file.endsWith('.csproj'))) {
+            return path.join(workspacePath, subdir);
+        }
+    }
+
+    return null;
 }
 
 // Scaffolding command
@@ -75,35 +140,22 @@ let scaffoldCommand = vscode.commands.registerCommand('extension.scaffoldMVC', a
 
     const { namespace, className } = modelInfo;
     const workspacePath = vscode.workspace.workspaceFolders![0].uri.fsPath; // Root project folder
-    const projectDir = path.join(workspacePath, 'WebApplication1'); // Project directory
 
-    // Ensure project directory exists
-    if (!fs.existsSync(projectDir)) {
-        vscode.window.showErrorMessage(`The project directory does not exist: ${projectDir}`);
+    // Determine the project directory by finding the .csproj file in the workspace
+    const projectDir = findProjectDirectory(workspacePath);
+
+    if (!projectDir) {
+        vscode.window.showErrorMessage('No project directory with a .csproj file found.');
         return;
     }
 
-    // Check if the required scaffolding NuGet package is installed
-    if (!checkRequiredPackage(projectDir, 'Microsoft.VisualStudio.Web.CodeGeneration.Design')) {
-        // Ask the user if they want to install the package
-        const installPackage = await vscode.window.showInformationMessage(
-            'The required Microsoft.VisualStudio.Web.CodeGeneration.Design package is missing. Do you want to install it?',
-            'Install', 'Cancel'
-        );
-
-        if (installPackage === 'Install') {
-            try {
-                await installRequiredPackage(projectDir, 'Microsoft.VisualStudio.Web.CodeGeneration.Design');
-            } catch (error) {
-                vscode.window.showErrorMessage('Failed to install required package. Please try again.');
-                return;
-            }
-        } else {
-            return; // Abort scaffolding if the user cancels
-        }
+    // Ensure Controllers folder exists
+    const controllersPath = path.join(projectDir, 'Controllers');
+    if (!fs.existsSync(controllersPath)) {
+        fs.mkdirSync(controllersPath);
     }
 
-    // Check if the Entity Framework Core Tools package is installed
+    // (Previous package installation checks remain the same)
     if (!checkRequiredPackage(projectDir, 'Microsoft.EntityFrameworkCore.Tools')) {
         // Ask the user if they want to install the package
         const installEfPackage = await vscode.window.showInformationMessage(
@@ -116,26 +168,6 @@ let scaffoldCommand = vscode.commands.registerCommand('extension.scaffoldMVC', a
                 await installRequiredPackage(projectDir, 'Microsoft.EntityFrameworkCore.Tools');
             } catch (error) {
                 vscode.window.showErrorMessage('Failed to install Entity Framework Core Tools package. Please try again.');
-                return;
-            }
-        } else {
-            return; // Abort scaffolding if the user cancels
-        }
-    }
-
-    // Check if the Microsoft.EntityFrameworkCore.SqlServer package is installed
-    if (!checkRequiredPackage(projectDir, 'Microsoft.EntityFrameworkCore.SqlServer')) {
-        // Ask the user if they want to install the package
-        const installSqlServerPackage = await vscode.window.showInformationMessage(
-            'The required Microsoft.EntityFrameworkCore.SqlServer package is missing. Do you want to install it?',
-            'Install', 'Cancel'
-        );
-
-        if (installSqlServerPackage === 'Install') {
-            try {
-                await installRequiredPackage(projectDir, 'Microsoft.EntityFrameworkCore.SqlServer');
-            } catch (error) {
-                vscode.window.showErrorMessage('Failed to install Microsoft.EntityFrameworkCore.SqlServer package. Please try again.');
                 return;
             }
         } else {
@@ -160,7 +192,8 @@ let scaffoldCommand = vscode.commands.registerCommand('extension.scaffoldMVC', a
     });
 
     // Fetch available data contexts
-    const dataContexts = await getAvailableDataContexts();
+    const dataContexts = await getAvailableDataContexts(projectDir);
+    dataContexts.unshift('None');  // Add 'None' option at the start of the list
     const selectedContext = await vscode.window.showQuickPick(dataContexts, {
         placeHolder: 'Select a data context (or None)'
     });
@@ -170,12 +203,53 @@ let scaffoldCommand = vscode.commands.registerCommand('extension.scaffoldMVC', a
         return;
     }
 
+    // Only check for SQL Server package if a data context is selected
+    if (selectedContext !== 'None') {
+        // Check if the Microsoft.EntityFrameworkCore.SqlServer package is installed
+        if (!checkRequiredPackage(projectDir, 'Microsoft.EntityFrameworkCore.SqlServer')) {
+            // Ask the user if they want to install the SQL Server package
+            const installSqlServerPackage = await vscode.window.showInformationMessage(
+                'The required Microsoft.EntityFrameworkCore.SqlServer package is missing. Do you want to install it?',
+                'Install', 'Cancel'
+            );
+
+            if (installSqlServerPackage === 'Install') {
+                try {
+                    await installRequiredPackage(projectDir, 'Microsoft.EntityFrameworkCore.SqlServer');
+                } catch (error) {
+                    vscode.window.showErrorMessage('Failed to install Microsoft.EntityFrameworkCore.SqlServer package. Please try again.');
+                    return;
+                }
+            } else {
+                return; // Abort scaffolding if the user cancels
+            }
+        }
+    }
+    
     // Construct the terminal command
-    const terminalCommand = `dotnet aspnet-codegenerator controller -name ${controllerName} -m ${namespace}.${className} ${
-        selectedContext !== 'None' ? `-dc ${selectedContext}` : ''
-    } -outDir ${path.relative(projectDir, path.join(projectDir, 'Controllers'))} ${
-        generateViews === 'Yes' ? '--useDefaultLayout --referenceScriptLibraries' : ''
-    }`;
+    let terminalCommand = `dotnet aspnet-codegenerator controller -name ${controllerName} -m ${namespace}.${className}`;
+
+    // Add data context if not 'None'
+    if (selectedContext !== 'None') {
+        // Extract just the context name, removing both prefixes
+        const contextName = selectedContext
+            .replace('Found in Project: ', '')
+            .replace(/\s*\(.*\)$/, '');
+        terminalCommand += ` -dc ${contextName}`;
+    }
+
+    // Explicitly set output directory to Controllers folder
+    terminalCommand += ` -outDir Controllers`;
+
+    // Only add view generation flags if "Yes" is selected
+    if (generateViews === 'Yes') {
+        terminalCommand += ' --useDefaultLayout --referenceScriptLibraries';
+    } else {
+        // Explicitly prevent view generation
+        terminalCommand += ' --noViews';
+    }
+
+    console.log(`Generated Command: ${terminalCommand}`);  // For debugging
 
     // Open terminal and run the command
     const terminal = vscode.window.createTerminal('Scaffold MVC');
