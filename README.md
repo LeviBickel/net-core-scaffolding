@@ -14,3 +14,6 @@ Initial release.
 
 ### 0.0.2
 Introduced bug fixes to the initial deployment.
+
+### 0.0.3
+Introduced some changes to installation of dependencies that were failing and the handling of dbcontexts.

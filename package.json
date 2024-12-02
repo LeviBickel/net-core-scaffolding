@@ -2,7 +2,7 @@
   "name": "net-core-mvc-scaffolding",
   "displayName": ".Net Core MVC Controller and View Scaffolding",
   "description": "Visual Studio Scaffolding for .Net Core MVC Controllers and Views in VSCode",
-  "version": "0.0.2",
+  "version": "0.0.5",
   "publisher": "LeviBickel",
   "repository": {
     "type": "git",
@@ -16,6 +16,12 @@
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+        "supported": true,
+        "description": "The extension needs access to files for scaffolding."
+    }
+  },
   "contributes": {
     "commands": [
       {
