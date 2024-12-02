@@ -60,7 +60,7 @@ function installRequiredPackage(projectDir: string, packageName: string): Promis
 
 // Function to get available data contexts
 async function getAvailableDataContexts(projectDir: string): Promise<string[]> {
-    const dataContexts: string[] = [];
+    const dataContexts: string[] = ['None', 'AppDbContext', 'ApplicationDbContext'];
 
     // Check for DbContext classes in the entire project directory
     const findDbContextFiles = (dir: string): string[] => {
@@ -107,24 +107,34 @@ async function getAvailableDataContexts(projectDir: string): Promise<string[]> {
     return dataContexts;
 }
 
-// Function to find the project directory based on the workspace
-function findProjectDirectory(workspacePath: string): string | null {
-    const files = fs.readdirSync(workspacePath);
-    const csprojFile = files.find(file => file.endsWith('.csproj'));
+// Function to find the project directory based on the selected file
+function findProjectDirectoryFromFile(selectedFilePath: string): string | null {
+    const workspacePath = vscode.workspace.workspaceFolders![0].uri.fsPath; // Root project folder
 
-    if (csprojFile) {
-        return workspacePath; // Return the workspace if the .csproj file is found
-    }
+    // Log the workspace path to debug
+    console.log(`Workspace Path: ${workspacePath}`);
 
-    const subdirectories = fs.readdirSync(workspacePath).filter((file) => fs.statSync(path.join(workspacePath, file)).isDirectory());
-    for (const subdir of subdirectories) {
-        const csprojInSubdir = path.join(workspacePath, subdir, '*.csproj');
-        const subFiles = fs.readdirSync(path.join(workspacePath, subdir));
-        if (subFiles.some(file => file.endsWith('.csproj'))) {
-            return path.join(workspacePath, subdir);
+    // Get all subdirectories in the workspace
+    const directories = fs.readdirSync(workspacePath).filter(item => {
+        const fullPath = path.join(workspacePath, item);
+        return fs.statSync(fullPath).isDirectory();
+    });
+
+    // Iterate through each directory and check if it contains a .csproj file
+    for (const dir of directories) {
+        const fullDirPath = path.join(workspacePath, dir);
+        const csprojFiles = fs.readdirSync(fullDirPath).filter(file => file.endsWith('.csproj'));
+
+        if (csprojFiles.length > 0) {
+            // Check if the selected file is within the current project directory
+            if (selectedFilePath.startsWith(fullDirPath)) {
+                console.log(`Found project directory for the selected file: ${fullDirPath}`);
+                return fullDirPath; // Return the correct project directory
+            }
         }
     }
 
+    console.log('No project directory found for the selected file.');
     return null;
 }
 
@@ -139,13 +149,10 @@ let scaffoldCommand = vscode.commands.registerCommand('extension.scaffoldMVC', a
     }
 
     const { namespace, className } = modelInfo;
-    const workspacePath = vscode.workspace.workspaceFolders![0].uri.fsPath; // Root project folder
-
-    // Determine the project directory by finding the .csproj file in the workspace
-    const projectDir = findProjectDirectory(workspacePath);
+    const projectDir = findProjectDirectoryFromFile(modelFilePath);
 
     if (!projectDir) {
-        vscode.window.showErrorMessage('No project directory with a .csproj file found.');
+        vscode.window.showErrorMessage('Unable to determine the project directory for the selected file.');
         return;
     }
 
@@ -155,9 +162,8 @@ let scaffoldCommand = vscode.commands.registerCommand('extension.scaffoldMVC', a
         fs.mkdirSync(controllersPath);
     }
 
-    // (Previous package installation checks remain the same)
+    // Check and install necessary packages if missing
     if (!checkRequiredPackage(projectDir, 'Microsoft.EntityFrameworkCore.Tools')) {
-        // Ask the user if they want to install the package
         const installEfPackage = await vscode.window.showInformationMessage(
             'The required Microsoft.EntityFrameworkCore.Tools package is missing. Do you want to install it?',
             'Install', 'Cancel'
@@ -175,7 +181,25 @@ let scaffoldCommand = vscode.commands.registerCommand('extension.scaffoldMVC', a
         }
     }
 
-    // Prompt for controller name
+    // Check and install Microsoft.VisualStudio.Web.CodeGeneration.Design package
+    if (!checkRequiredPackage(projectDir, 'Microsoft.VisualStudio.Web.CodeGeneration.Design')) {
+        const installCodeGenPackage = await vscode.window.showInformationMessage(
+            'The required Microsoft.VisualStudio.Web.CodeGeneration.Design package is missing. Do you want to install it?',
+            'Install', 'Cancel'
+        );
+
+        if (installCodeGenPackage === 'Install') {
+            try {
+                await installRequiredPackage(projectDir, 'Microsoft.VisualStudio.Web.CodeGeneration.Design');
+            } catch (error) {
+                vscode.window.showErrorMessage('Failed to install Web.CodeGeneration.Design package. Please try again.');
+                return;
+            }
+        } else {
+            return; // Abort scaffolding if the user cancels
+        }
+    }
+
     const controllerName = await vscode.window.showInputBox({
         prompt: 'Enter the name for the controller',
         value: `${className}Controller` // Default to model name + Controller suffix
@@ -186,14 +210,12 @@ let scaffoldCommand = vscode.commands.registerCommand('extension.scaffoldMVC', a
         return;
     }
 
-    // Prompt for view generation
     const generateViews = await vscode.window.showQuickPick(['Yes', 'No'], {
         placeHolder: 'Generate views for this controller?'
     });
 
     // Fetch available data contexts
     const dataContexts = await getAvailableDataContexts(projectDir);
-    dataContexts.unshift('None');  // Add 'None' option at the start of the list
     const selectedContext = await vscode.window.showQuickPick(dataContexts, {
         placeHolder: 'Select a data context (or None)'
     });
@@ -205,9 +227,7 @@ let scaffoldCommand = vscode.commands.registerCommand('extension.scaffoldMVC', a
 
     // Only check for SQL Server package if a data context is selected
     if (selectedContext !== 'None') {
-        // Check if the Microsoft.EntityFrameworkCore.SqlServer package is installed
         if (!checkRequiredPackage(projectDir, 'Microsoft.EntityFrameworkCore.SqlServer')) {
-            // Ask the user if they want to install the SQL Server package
             const installSqlServerPackage = await vscode.window.showInformationMessage(
                 'The required Microsoft.EntityFrameworkCore.SqlServer package is missing. Do you want to install it?',
                 'Install', 'Cancel'
@@ -225,43 +245,26 @@ let scaffoldCommand = vscode.commands.registerCommand('extension.scaffoldMVC', a
             }
         }
     }
-    
-    // Construct the terminal command
-    let terminalCommand = `dotnet aspnet-codegenerator controller -name ${controllerName} -m ${namespace}.${className}`;
 
-    // Add data context if not 'None'
-    if (selectedContext !== 'None') {
-        // Extract just the context name, removing both prefixes
-        const contextName = selectedContext
-            .replace('Found in Project: ', '')
-            .replace(/\s*\(.*\)$/, '');
-        terminalCommand += ` -dc ${contextName}`;
-    }
+    // Construct the scaffolding command
+    let terminalCommand = `dotnet aspnet-codegenerator controller -name ${controllerName} -m ${namespace}.${className} -dc ${selectedContext} -outDir Controllers`;
 
-    // Explicitly set output directory to Controllers folder
-    terminalCommand += ` -outDir Controllers`;
-
-    // Only add view generation flags if "Yes" is selected
     if (generateViews === 'Yes') {
         terminalCommand += ' --useDefaultLayout --referenceScriptLibraries';
-    } else {
-        // Explicitly prevent view generation
-        terminalCommand += ' --noViews';
     }
 
-    console.log(`Generated Command: ${terminalCommand}`);  // For debugging
+    console.log(`Running command: ${terminalCommand}`);
 
-    // Open terminal and run the command
-    const terminal = vscode.window.createTerminal('Scaffold MVC');
+    // Create terminal and run the command
+    const terminal = vscode.window.createTerminal('Scaffolding');
+    terminal.sendText(`cd "${projectDir}"`); // Ensure terminal is in the correct project directory
+    terminal.sendText(terminalCommand);
     terminal.show();
-    terminal.sendText(`cd ${projectDir}`); // Change working directory to the project folder
-    terminal.sendText(terminalCommand);    // Run the scaffolding command
 });
 
-// Activate function for VS Code extension
+// Register the scaffolding command
 export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(scaffoldCommand);
 }
 
-// Deactivate function for VS Code extension
 export function deactivate() {}

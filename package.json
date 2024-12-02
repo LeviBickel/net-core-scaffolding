@@ -1,8 +1,13 @@
 {
-  "name": "net-core-scaffolding",
-  "displayName": ".Net Core Scaffolding",
-  "description": "Visual Studio Scaffolding in VSCode",
-  "version": "0.0.1",
+  "name": "net-core-mvc-scaffolding",
+  "displayName": ".Net Core MVC Controller and View Scaffolding",
+  "description": "Visual Studio Scaffolding for .Net Core MVC Controllers and Views in VSCode",
+  "version": "0.0.2",
+  "publisher": "LeviBickel",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LeviBickel/net-core-scaffolding"
+  },
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -10,23 +15,23 @@
     "Other"
   ],
   "activationEvents": [],
-    "main": "./dist/extension.js",
-    "contributes": {
+  "main": "./dist/extension.js",
+  "contributes": {
     "commands": [
-        {
-            "command": "extension.scaffoldMVC",
-            "title": "Scaffold MVC"
-        }
+      {
+        "command": "extension.scaffoldMVC",
+        "title": "Scaffold MVC Controller"
+      }
     ],
     "menus": {
-        "explorer/context": [
-            {
-                "command": "extension.scaffoldMVC",
-                "when": "resourceExtname == '.cs'",
-                "group": "navigation"
-            }
-        ]
-  }
+      "explorer/context": [
+        {
+          "command": "extension.scaffoldMVC",
+          "when": "resourceExtname == '.cs'",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
@@ -43,16 +48,22 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.95.0",
     "@types/mocha": "^10.0.9",
     "@types/node": "20.x",
+    "@types/vscode": "^1.95.0",
     "@typescript-eslint/eslint-plugin": "^8.10.0",
     "@typescript-eslint/parser": "^8.7.0",
-    "eslint": "^9.13.0",
-    "esbuild": "^0.24.0",
-    "npm-run-all": "^4.1.5",
-    "typescript": "^5.6.3",
     "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.4.1"
+    "@vscode/test-electron": "^2.4.1",
+    "esbuild": "^0.24.0",
+    "eslint": "^9.13.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "@vscode/vsce": "^3.2.1",
+    "glob": "^11.0.0",
+    "inflight": "^1.0.6",
+    "vsce": "^2.15.0"
   }
 }
