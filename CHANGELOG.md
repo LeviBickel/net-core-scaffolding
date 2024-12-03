@@ -6,4 +6,4 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
-- Initial release update to fix current bugs
+- Minor changes to 0.0.5 to expand upon it allowing the user to specify a custom input for the database context name. 

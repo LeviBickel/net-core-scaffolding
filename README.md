@@ -17,3 +17,6 @@ Introduced bug fixes to the initial deployment.
 
 ### 0.0.3
 Introduced some changes to installation of dependencies that were failing and the handling of dbcontexts.
+
+### 0.0.6
+This version is including allowing the user to specify a custom name for the Database Context instead of just using the pre defined ones. 
