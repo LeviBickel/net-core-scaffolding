@@ -24,7 +24,6 @@ function extractModelInfo(filePath: string): { namespace: string, className: str
 
 // Function to check if the required NuGet package is installed
 function checkRequiredPackage(projectDir: string, packageName: string): boolean {
-    const csprojPath = path.join(projectDir, '*.csproj');
     const files = fs.readdirSync(projectDir);
     const csprojFile = files.find(file => file.endsWith('.csproj'));
 
@@ -34,10 +33,21 @@ function checkRequiredPackage(projectDir: string, packageName: string): boolean 
     }
 
     const csprojFilePath = path.join(projectDir, csprojFile);
-    const csprojContent = fs.readFileSync(csprojFilePath, 'utf-8');
+    console.log(`Checking .csproj file at: ${csprojFilePath}`);
 
-    // Check if the required package is referenced in the .csproj file
-    return csprojContent.includes(packageName);
+    try {
+        const csprojContent = fs.readFileSync(csprojFilePath, 'utf-8');
+        console.log(`.csproj content:\n${csprojContent}`);
+
+        // Check if the required package is referenced in the .csproj file
+        const isPackageReferenced = csprojContent.includes(`<PackageReference Include="${packageName}"`);
+        console.log(`Is package "${packageName}" referenced: ${isPackageReferenced}`);
+
+        return isPackageReferenced;
+    } catch (error) {
+        console.error(`Error reading .csproj file at ${csprojFilePath}:`, error);
+        return false;
+    }
 }
 
 // Function to install the required NuGet package
@@ -58,9 +68,9 @@ function installRequiredPackage(projectDir: string, packageName: string): Promis
     });
 }
 
-// Function to get available data contexts
+// Function to get available data contexts with custom option
 async function getAvailableDataContexts(projectDir: string): Promise<string[]> {
-    const dataContexts: string[] = ['None', 'DbContext', 'ApplicationDbContext'];
+    const dataContexts: string[] = ['None', 'DbContext', 'ApplicationDbContext', 'Custom...'];
 
     const findDbContextFiles = (dir: string): string[] => {
         const csFiles: string[] = [];
@@ -97,27 +107,71 @@ async function getAvailableDataContexts(projectDir: string): Promise<string[]> {
         }
     }
 
-    return dataContexts;
+    // Prompt the user to select a DbContext
+    const selectedContext = await vscode.window.showQuickPick(dataContexts, {
+        placeHolder: 'Select a data context (or None)',
+        canPickMany: false
+    });
+
+    // If the user selects "None", return an empty array
+    if (!selectedContext || selectedContext === 'None') {
+        return [];
+    }
+
+    // If the user selects "Custom...", show input box for custom DbContext
+    if (selectedContext === 'Custom...') {
+        const customDbContext = await vscode.window.showInputBox({
+            prompt: 'Enter a custom DbContext name',
+            placeHolder: 'e.g., MyCustomDbContext'
+        });
+
+        if (customDbContext) {
+            return [customDbContext];
+        }
+
+        return [];  // If no input is given, return empty array
+    }
+
+    // If the user selected a predefined context, return it
+    if (selectedContext && !selectedContext.startsWith('Found in Project:')) {
+        return [selectedContext];
+    }
+
+    // If the user selects a context found in the project, return it
+    return selectedContext
+        ? [selectedContext.replace('Found in Project: ', '').replace(/\s*\(.*\)$/, '')]
+        : [];
 }
 
-// Function to determine the project directory based on the selected file's path
+
+
+// Function to find the project directory based on the selected model file
 function findProjectDirectoryFromFile(filePath: string): string | null {
     const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) {return null;}
+    if (!workspaceFolders) { return null; }
 
     for (const folder of workspaceFolders) {
         const folderPath = folder.uri.fsPath;
+        
+        // Check if the file is inside the workspace folder
         if (filePath.startsWith(folderPath)) {
             const subDirs = fs.readdirSync(folderPath).filter(subDir => {
                 const fullPath = path.join(folderPath, subDir);
                 return fs.statSync(fullPath).isDirectory();
             });
 
+            // Iterate over subdirectories to check for a .csproj file
             for (const subDir of subDirs) {
                 const fullDirPath = path.join(folderPath, subDir);
                 const csprojFiles = fs.readdirSync(fullDirPath).filter(file => file.endsWith('.csproj'));
+
                 if (csprojFiles.length > 0) {
-                    return fullDirPath;
+                    // Check if the model file exists in the current subdirectory
+                    const modelDir = path.dirname(filePath);
+                    if (modelDir.startsWith(fullDirPath)) {
+                        // If the model file is in this subdirectory, set this as the project directory
+                        return fullDirPath;
+                    }
                 }
             }
         }
@@ -125,6 +179,8 @@ function findProjectDirectoryFromFile(filePath: string): string | null {
 
     return null;
 }
+
+
 
 // Scaffolding command
 let scaffoldCommand = vscode.commands.registerCommand('extension.scaffoldMVC', async (uri) => {
