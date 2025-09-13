@@ -1,8 +1,8 @@
 {
   "name": "net-core-mvc-scaffolding",
-  "displayName": ".Net Core MVC Controller and View Scaffolding",
-  "description": "Visual Studio Scaffolding for .Net Core MVC Controllers and Views in VSCode",
-  "version": "0.0.7",
+  "displayName": ".NET Core MVC Scaffolding & Publishing",
+  "description": "Complete Visual Studio-like scaffolding and publishing tools for .NET Core MVC projects in VS Code",
+  "version": "0.0.9",
   "publisher": "LeviBickel",
   "repository": {
     "type": "git",
@@ -27,6 +27,10 @@
       {
         "command": "extension.scaffoldMVC",
         "title": "Scaffold MVC Controller"
+      },
+      {
+        "command": "extension.publishToFolder",
+        "title": "Publish to Folder"
       }
     ],
     "menus": {
@@ -34,6 +38,11 @@
         {
           "command": "extension.scaffoldMVC",
           "when": "resourceExtname == '.cs'",
+          "group": "navigation"
+        },
+        {
+          "command": "extension.publishToFolder",
+          "when": "resourceExtname == '.csproj'",
           "group": "navigation"
         }
       ]
