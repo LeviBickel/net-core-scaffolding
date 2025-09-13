@@ -3,6 +3,15 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as cp from 'child_process';
 
+// Function to escape shell special characters in paths
+function escapeShellPath(filePath: string): string {
+    // Characters that need to be escaped in shell commands
+    const specialChars = /[!@#$%^&*()[\]{}|;':"<>?,`~]/g;
+
+    // Replace special characters with escaped versions
+    return filePath.replace(specialChars, '\\$&');
+}
+
 // Function to extract namespace and class name from the model file
 function extractModelInfo(filePath: string): { namespace: string, className: string } | null {
     const content = fs.readFileSync(filePath, 'utf-8');
@@ -274,14 +283,75 @@ let scaffoldCommand = vscode.commands.registerCommand('extension.scaffoldMVC', a
     }
 
     const terminal = vscode.window.createTerminal('Scaffold MVC');
-    terminal.sendText(`cd "${projectDir}"`);
+    terminal.sendText(`cd "${escapeShellPath(projectDir)}"`);
     terminal.sendText(terminalCommand);
     terminal.show();
+});
+
+// Function to handle publish to folder command
+const publishToFolderCommand = vscode.commands.registerCommand('extension.publishToFolder', async (uri: vscode.Uri) => {
+    if (!uri || !uri.fsPath.endsWith('.csproj')) {
+        vscode.window.showErrorMessage('Please select a .csproj file.');
+        return;
+    }
+
+    const projectDir = path.dirname(uri.fsPath);
+    const projectName = path.basename(uri.fsPath, '.csproj');
+
+    // Open folder dialog for publish destination
+    const folderUri = await vscode.window.showOpenDialog({
+        canSelectFiles: false,
+        canSelectFolders: true,
+        canSelectMany: false,
+        openLabel: 'Select Publish Folder'
+    });
+
+    if (!folderUri || folderUri.length === 0) {
+        vscode.window.showInformationMessage('Publish cancelled - no folder selected.');
+        return;
+    }
+
+    const publishPath = folderUri[0].fsPath;
+
+    // Show configuration options
+    const configuration = await vscode.window.showQuickPick(['Debug', 'Release'], {
+        placeHolder: 'Select build configuration'
+    });
+
+    if (!configuration) {
+        vscode.window.showInformationMessage('Publish cancelled - no configuration selected.');
+        return;
+    }
+
+    const framework = await vscode.window.showInputBox({
+        prompt: 'Target framework (e.g., net6.0, net7.0, net8.0) - leave empty for default',
+        placeHolder: 'net8.0'
+    });
+
+    // Build the dotnet publish command with escaped paths
+    const escapedProjectPath = escapeShellPath(uri.fsPath);
+    const escapedPublishPath = escapeShellPath(publishPath);
+    const escapedProjectDir = escapeShellPath(projectDir);
+
+    let publishCommand = `dotnet publish "${escapedProjectPath}" -c ${configuration} -o "${escapedPublishPath}"`;
+
+    if (framework && framework.trim()) {
+        publishCommand += ` -f ${framework.trim()}`;
+    }
+
+    // Create and show terminal
+    const terminal = vscode.window.createTerminal(`Publish ${projectName}`);
+    terminal.sendText(`cd "${escapedProjectDir}"`);
+    terminal.sendText(publishCommand);
+    terminal.show();
+
+    vscode.window.showInformationMessage(`Publishing ${projectName} to ${publishPath}...`);
 });
 
 // Activate function
 export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(scaffoldCommand);
+    context.subscriptions.push(publishToFolderCommand);
 }
 
 // Deactivate function
