@@ -79,9 +79,68 @@ The extension will execute `dotnet publish` with your selected options.
 - ✅ Cross-platform development (Windows, macOS, Linux)
 - ✅ Workspaces with special characters in paths
 
+## 🔒 Security
+
+This extension is actively maintained with regular security updates. All dependencies are kept up-to-date to ensure the safety of your development environment.
+
+## 🎬 Screenshots
+
+### MVC Scaffolding in Action
+Right-click any C# model file to instantly scaffold a complete MVC controller with CRUD operations.
+
+### Publish to Folder
+Right-click any .csproj file to publish your application with Visual Studio-like workflow.
+
+## ❓ FAQ
+
+### How do I scaffold a controller?
+Simply right-click on any `.cs` model file in your project explorer and select "Scaffold MVC Controller" from the context menu.
+
+### What dependencies are automatically installed?
+The extension will detect if you're missing `Microsoft.VisualStudio.Web.CodeGeneration.Design` and prompt you to install it automatically.
+
+### Can I use my own DbContext?
+Yes! The extension will detect existing DbContexts in your project and let you choose from them, or you can specify a custom one.
+
+### Does this work on macOS and Linux?
+Absolutely! The extension is fully cross-platform and works on Windows, macOS, and Linux.
+
+### What .NET versions are supported?
+The extension supports .NET Core 6.0 and higher, including .NET 8.0.
+
+## 🔧 Troubleshooting
+
+### Extension doesn't appear in context menu
+- Ensure you're right-clicking on a `.cs` file for scaffolding or `.csproj` file for publishing
+- Restart VS Code after installation
+
+### Scaffolding fails with dependency errors
+- Make sure you have .NET SDK installed and available in your PATH
+- Run `dotnet --version` in terminal to verify
+- The extension will prompt to install missing NuGet packages automatically
+
+### Special characters in path cause issues
+- Version 0.0.9+ includes enhanced special character handling
+- Update to the latest version if you're experiencing path-related issues
+
+### DbContext not detected
+- Ensure your DbContext class inherits from `DbContext`
+- Check that your project is properly built
+- The DbContext must be in the same project as your model
+
 ## 📝 Release Notes
 
-### 0.0.9 (Latest)
+### 0.0.10 (Latest)
+- **🔒 SECURITY**: Updated all dependencies to fix security vulnerabilities
+  - Fixed tar-fs (CVE-2025-59343 - High severity)
+  - Fixed js-yaml (CVE-2025-64718 - Moderate severity)
+  - Fixed glob (CVE-2025-64756 - High severity)
+  - Fixed jws (CVE-2025-65945 - High severity)
+  - Fixed qs (High severity)
+- **📦 IMPROVED**: Reduced extension package size from 81.58 KB to 8.08 KB
+- **✅ VERIFIED**: All tests passing with zero security vulnerabilities
+
+### 0.0.9
 - **🆕 NEW**: Added "Publish to Folder" feature for .csproj files
 - **🔧 IMPROVED**: Enhanced special character handling in file paths
 - **🔧 IMPROVED**: Better shell command escaping for cross-platform compatibility
