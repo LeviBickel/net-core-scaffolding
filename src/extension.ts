@@ -288,8 +288,35 @@ let scaffoldCommand = vscode.commands.registerCommand('extension.scaffoldMVC', a
     terminal.show();
 });
 
+// Function to extract target framework from .csproj file
+function getTargetFramework(csprojPath: string): string | null {
+    try {
+        const content = fs.readFileSync(csprojPath, 'utf-8');
+
+        // Match <TargetFramework>net8.0</TargetFramework> or <TargetFrameworks>net8.0;net7.0</TargetFrameworks>
+        const singleFrameworkRegex = /<TargetFramework>([^<]+)<\/TargetFramework>/i;
+        const multiFrameworkRegex = /<TargetFrameworks>([^<]+)<\/TargetFrameworks>/i;
+
+        const singleMatch = content.match(singleFrameworkRegex);
+        if (singleMatch) {
+            return singleMatch[1].trim();
+        }
+
+        const multiMatch = content.match(multiFrameworkRegex);
+        if (multiMatch) {
+            // Return the first framework if multiple are specified
+            const frameworks = multiMatch[1].split(';');
+            return frameworks[0].trim();
+        }
+    } catch (error) {
+        console.error(`Error reading .csproj file: ${error}`);
+    }
+
+    return null;
+}
+
 // Function to handle publish to folder command
-const publishToFolderCommand = vscode.commands.registerCommand('extension.publishToFolder', async (uri: vscode.Uri) => {
+async function publishToFolder(uri: vscode.Uri, context: vscode.ExtensionContext) {
     if (!uri || !uri.fsPath.endsWith('.csproj')) {
         vscode.window.showErrorMessage('Please select a .csproj file.');
         return;
@@ -298,12 +325,24 @@ const publishToFolderCommand = vscode.commands.registerCommand('extension.publis
     const projectDir = path.dirname(uri.fsPath);
     const projectName = path.basename(uri.fsPath, '.csproj');
 
+    // Get the last used publish folder from workspace state
+    const lastPublishFolder = context.workspaceState.get<string>('lastPublishFolder');
+
+    // Determine the default URI for the folder picker
+    let defaultUri: vscode.Uri | undefined;
+    if (lastPublishFolder && fs.existsSync(lastPublishFolder)) {
+        defaultUri = vscode.Uri.file(lastPublishFolder);
+    } else {
+        defaultUri = vscode.Uri.file(projectDir);
+    }
+
     // Open folder dialog for publish destination
     const folderUri = await vscode.window.showOpenDialog({
         canSelectFiles: false,
         canSelectFolders: true,
         canSelectMany: false,
-        openLabel: 'Select Publish Folder'
+        openLabel: 'Select Publish Folder',
+        defaultUri: defaultUri
     });
 
     if (!folderUri || folderUri.length === 0) {
@@ -312,6 +351,9 @@ const publishToFolderCommand = vscode.commands.registerCommand('extension.publis
     }
 
     const publishPath = folderUri[0].fsPath;
+
+    // Save the selected folder for next time
+    await context.workspaceState.update('lastPublishFolder', path.dirname(publishPath));
 
     // Show configuration options
     const configuration = await vscode.window.showQuickPick(['Debug', 'Release'], {
@@ -323,9 +365,14 @@ const publishToFolderCommand = vscode.commands.registerCommand('extension.publis
         return;
     }
 
+    // Get the target framework from the .csproj file
+    const detectedFramework = getTargetFramework(uri.fsPath);
+    const defaultFramework = detectedFramework || 'net8.0';
+
     const framework = await vscode.window.showInputBox({
-        prompt: 'Target framework (e.g., net6.0, net7.0, net8.0) - leave empty for default',
-        placeHolder: 'net8.0'
+        prompt: 'Target framework (e.g., net6.0, net7.0, net8.0, net9.0) - leave empty for default',
+        placeHolder: defaultFramework,
+        value: defaultFramework
     });
 
     // Build the dotnet publish command with escaped paths
@@ -346,10 +393,15 @@ const publishToFolderCommand = vscode.commands.registerCommand('extension.publis
     terminal.show();
 
     vscode.window.showInformationMessage(`Publishing ${projectName} to ${publishPath}...`);
-});
+}
 
 // Activate function
 export function activate(context: vscode.ExtensionContext) {
+    // Register the publish to folder command with context
+    const publishToFolderCommand = vscode.commands.registerCommand('extension.publishToFolder', async (uri: vscode.Uri) => {
+        await publishToFolder(uri, context);
+    });
+
     context.subscriptions.push(scaffoldCommand);
     context.subscriptions.push(publishToFolderCommand);
 }

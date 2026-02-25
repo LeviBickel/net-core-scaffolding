@@ -16,6 +16,7 @@ Bring Visual Studio's powerful .NET Core MVC scaffolding and publishing capabili
 ### 📦 Publish to Folder
 - **Visual Studio-like publishing**: Right-click `.csproj` files for familiar publishing workflow
 - **Interactive configuration**: Choose Debug/Release builds and target frameworks
+- **Smart defaults**: Remembers last publish location and auto-detects project framework version
 - **Folder selection**: Built-in folder picker for publish destinations
 - **Cross-platform support**: Works seamlessly on Windows, macOS, and Linux
 
@@ -106,7 +107,7 @@ Yes! The extension will detect existing DbContexts in your project and let you c
 Absolutely! The extension is fully cross-platform and works on Windows, macOS, and Linux.
 
 ### What .NET versions are supported?
-The extension supports .NET Core 6.0 and higher, including .NET 8.0.
+The extension supports .NET Core 6.0 and higher, including .NET 8.0 and .NET 9.0.
 
 ## 🔧 Troubleshooting
 
@@ -130,7 +131,22 @@ The extension supports .NET Core 6.0 and higher, including .NET 8.0.
 
 ## 📝 Release Notes
 
-### 0.0.10 (Latest)
+### 0.0.12 (Latest)
+- **🔒 SECURITY**: Fixed all 7 security vulnerabilities
+  - Updated undici to 7.18.2+ (CVE-2026-22036 - Moderate)
+  - Updated lodash to 4.17.23+ (CVE-2025-13465 - Moderate)
+  - Updated @isaacs/brace-expansion to 5.0.1+ (CVE-2026-25547 - High)
+  - Updated markdown-it to 14.1.1+ (CVE-2026-2327 - Moderate)
+  - Updated qs to 6.14.2+ (CVE-2026-2391 - Low)
+  - Updated minimatch to 10.2.1+ (CVE-2026-26996 - High)
+  - Updated ajv to 8.18.0+ (CVE-2025-69873 - Moderate)
+- **🆕 FEATURE**: Publish to folder now remembers last used location
+- **🆕 FEATURE**: Target framework auto-detects from project (no more defaulting to net8.0)
+- **🧹 CLEANUP**: Removed deprecated inflight package (memory leak risk)
+- **📦 IMPROVED**: Updated 101 dependencies to latest compatible versions
+- **✅ VERIFIED**: Zero vulnerabilities, zero deprecation warnings
+
+### 0.0.10
 - **🔒 SECURITY**: Updated all dependencies to fix security vulnerabilities
   - Fixed tar-fs (CVE-2025-59343 - High severity)
   - Fixed js-yaml (CVE-2025-64718 - Moderate severity)
