@@ -131,7 +131,7 @@ The extension supports .NET Core 6.0 and higher, including .NET 8.0 and .NET 9.0
 
 ## 📝 Release Notes
 
-### 0.0.12 (Latest)
+### 0.0.13 (Latest)
 - **🔒 SECURITY**: Fixed all 7 security vulnerabilities
   - Updated undici to 7.18.2+ (CVE-2026-22036 - Moderate)
   - Updated lodash to 4.17.23+ (CVE-2025-13465 - Moderate)
