@@ -5,8 +5,8 @@ import * as cp from 'child_process';
 
 // Function to escape shell special characters in paths
 function escapeShellPath(filePath: string): string {
-    // Characters that need to be escaped in shell commands
-    const specialChars = /[!@#$%^&*()[\]{}|;':"<>?,`~]/g;
+    // Characters that need to be escaped in shell commands (excluding colon for Windows drive letters)
+    const specialChars = /[!@#$%^&*()[\]{}|;'"<>?,`~]/g;
 
     // Replace special characters with escaped versions
     return filePath.replace(specialChars, '\\$&');

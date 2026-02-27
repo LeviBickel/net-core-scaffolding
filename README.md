@@ -131,7 +131,13 @@ The extension supports .NET Core 6.0 and higher, including .NET 8.0 and .NET 9.0
 
 ## 📝 Release Notes
 
-### 0.0.13 (Latest)
+### 0.0.14 (Latest)
+- **🐛 BUGFIX**: Fixed Windows drive letter path handling in publish command
+  - Removed incorrect escaping of colon `:` character that caused paths like `c:\` to become `c\:`
+  - Resolves "Project file does not exist" errors when publishing on Windows
+  - Improves cross-platform path compatibility
+
+### 0.0.13
 - **🔒 SECURITY**: Fixed all 7 security vulnerabilities
   - Updated undici to 7.18.2+ (CVE-2026-22036 - Moderate)
   - Updated lodash to 4.17.23+ (CVE-2025-13465 - Moderate)
