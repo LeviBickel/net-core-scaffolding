@@ -2,6 +2,19 @@
 
 All notable changes to the "net-core-scaffolding" extension will be documented in this file.
 
+## [0.0.15] - 2026-02-27
+
+### Security
+- **CRITICAL**: Fixed minimatch vulnerability (GHSA-23c5-xmqv-rm74 - High severity)
+  - Updated minimatch to version 3.1.4+ to fix ReDoS vulnerability
+  - Nested *() extglobs no longer generate catastrophically backtracking regular expressions
+  - All transitive dependencies updated to secure versions
+
+### Verified
+- All TypeScript type checks passing
+- All ESLint checks passing
+- Zero security vulnerabilities detected
+
 ## [0.0.11] - 2025-01-13
 
 ### Improved

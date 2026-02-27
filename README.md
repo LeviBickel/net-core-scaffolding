@@ -131,7 +131,13 @@ The extension supports .NET Core 6.0 and higher, including .NET 8.0 and .NET 9.0
 
 ## 📝 Release Notes
 
-### 0.0.14 (Latest)
+### 0.0.15 (Latest)
+- **🔒 SECURITY**: Fixed minimatch ReDoS vulnerability (GHSA-23c5-xmqv-rm74 - High severity)
+  - Updated minimatch to 3.1.4+ to prevent catastrophic backtracking in regular expressions
+  - All transitive dependencies updated to secure versions
+- **✅ VERIFIED**: Zero security vulnerabilities detected
+
+### 0.0.14
 - **🐛 BUGFIX**: Fixed Windows drive letter path handling in publish command
   - Removed incorrect escaping of colon `:` character that caused paths like `c:\` to become `c\:`
   - Resolves "Project file does not exist" errors when publishing on Windows
