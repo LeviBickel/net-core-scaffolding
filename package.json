@@ -2,7 +2,7 @@
   "name": "net-core-mvc-scaffolding",
   "displayName": ".NET Core MVC Scaffolding & Publishing",
   "description": "Complete Visual Studio-like scaffolding and publishing tools for .NET Core MVC projects. Generate controllers, publish to folders or IIS with Web Deploy.",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "publisher": "LeviBickel",
   "repository": {
     "type": "git",
