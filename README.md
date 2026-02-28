@@ -141,7 +141,10 @@ The extension supports .NET Core 6.0 and higher, including .NET 8.0 and .NET 9.0
   - Tested with 28 comprehensive tests covering all edge cases
 
 ### 0.0.15
-- Released but unpublished (version conflict)
+- **🔒 SECURITY**: Fixed minimatch ReDoS vulnerability (GHSA-23c5-xmqv-rm74 - High severity)
+  - Updated minimatch to 3.1.4+ to prevent catastrophic backtracking in regular expressions
+  - All transitive dependencies updated to secure versions
+- **✅ VERIFIED**: Zero security vulnerabilities detected
 
 ### 0.0.14
 - **🐛 BUGFIX**: Fixed Windows drive letter path handling in publish command
