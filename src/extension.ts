@@ -573,9 +573,24 @@ async function createNewPublishProfile(context: vscode.ExtensionContext, project
 
     // Server URL
     const serverUrl = await vscode.window.showInputBox({
-        prompt: 'Enter server URL',
-        placeHolder: 'e.g., https://yourserver:8172/msdeploy.axd',
-        value: 'https://'
+        prompt: 'Enter Web Deploy server URL (include https://, port :8172, and /msdeploy.axd)',
+        placeHolder: 'https://yourserver:8172/msdeploy.axd or https://192.168.1.100:8172/msdeploy.axd',
+        value: 'https://',
+        validateInput: (value) => {
+            if (!value || value === 'https://') {
+                return 'Server URL is required';
+            }
+            if (!value.startsWith('http://') && !value.startsWith('https://')) {
+                return 'URL must start with http:// or https://';
+            }
+            if (!value.includes('/msdeploy.axd')) {
+                return 'URL should end with /msdeploy.axd (e.g., https://server:8172/msdeploy.axd)';
+            }
+            if (!value.match(/:\d+\//)) {
+                return 'URL should include port number (typically :8172)';
+            }
+            return null;
+        }
     });
 
     if (!serverUrl) {
@@ -744,10 +759,20 @@ async function publishToIIS(uri: vscode.Uri, context: vscode.ExtensionContext) {
     // Create and show terminal
     const terminal = vscode.window.createTerminal(`Publish to IIS - ${projectName}`);
     terminal.sendText(`cd ${quotePath(projectDir)}`);
+
+    // Show command with masked password in terminal
+    const maskedCommand = publishCommand.replace(
+        `/p:Password=${config.password}`,
+        '/p:Password=********'
+    );
+    terminal.sendText(`echo Publishing with: ${maskedCommand}`);
+
+    // Execute actual command (password will still be in process args, but not visible in history)
     terminal.sendText(publishCommand);
     terminal.show();
 
     vscode.window.showInformationMessage(`Publishing ${projectName} to IIS (${config.siteName})...`);
+    vscode.window.showWarningMessage('Note: Password is passed via command line. For production, consider using publish settings files.');
 }
 
 // Activate function
