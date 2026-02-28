@@ -131,7 +131,19 @@ The extension supports .NET Core 6.0 and higher, including .NET 8.0 and .NET 9.0
 
 ## 📝 Release Notes
 
-### 0.0.14 (Latest)
+### 0.0.16 (Latest)
+- **🐛 CRITICAL FIX**: Comprehensive cross-platform path handling
+  - Implemented OS-aware path quoting for all terminal commands
+  - Windows (PowerShell/CMD): Clean quoting without unnecessary escaping
+  - Unix (Bash/Zsh/Fish): Proper escaping of `$`, `` ` ``, `\`, and `"` characters
+  - Fixed `c:\` being converted to `c\:` causing "drive not found" errors on Windows
+  - Resolves "Project file does not exist" errors across all platforms and shell types
+  - Tested with 28 comprehensive tests covering all edge cases
+
+### 0.0.15
+- Released but unpublished (version conflict)
+
+### 0.0.14
 - **🐛 BUGFIX**: Fixed Windows drive letter path handling in publish command
   - Removed incorrect escaping of colon `:` character that caused paths like `c:\` to become `c\:`
   - Resolves "Project file does not exist" errors when publishing on Windows

@@ -3,13 +3,24 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as cp from 'child_process';
 
-// Function to escape shell special characters in paths
-function escapeShellPath(filePath: string): string {
-    // Characters that need to be escaped in shell commands (excluding colon for Windows drive letters)
-    const specialChars = /[!@#$%^&*()[\]{}|;'"<>?,`~]/g;
-
-    // Replace special characters with escaped versions
-    return filePath.replace(specialChars, '\\$&');
+// Function to safely quote paths for terminal commands
+// Handles different shells: PowerShell, CMD, Bash, Zsh, Fish
+function quotePath(filePath: string): string {
+    if (process.platform === 'win32') {
+        // Windows (PowerShell/CMD): Just wrap in quotes
+        // Backslashes and colons don't need escaping
+        // Double quotes are illegal in Windows file names, so no need to escape
+        return `"${filePath}"`;
+    } else {
+        // Unix (Linux/macOS) using Bash/Zsh/Fish
+        // Escape characters that are special inside double quotes
+        const escaped = filePath
+            .replace(/\\/g, '\\\\')   // Backslash
+            .replace(/"/g, '\\"')      // Double quote
+            .replace(/\$/g, '\\$')     // Dollar sign (variable expansion)
+            .replace(/`/g, '\\`');     // Backtick (command substitution)
+        return `"${escaped}"`;
+    }
 }
 
 // Function to extract namespace and class name from the model file
@@ -283,7 +294,7 @@ let scaffoldCommand = vscode.commands.registerCommand('extension.scaffoldMVC', a
     }
 
     const terminal = vscode.window.createTerminal('Scaffold MVC');
-    terminal.sendText(`cd "${escapeShellPath(projectDir)}"`);
+    terminal.sendText(`cd ${quotePath(projectDir)}`);
     terminal.sendText(terminalCommand);
     terminal.show();
 });
@@ -375,12 +386,8 @@ async function publishToFolder(uri: vscode.Uri, context: vscode.ExtensionContext
         value: defaultFramework
     });
 
-    // Build the dotnet publish command with escaped paths
-    const escapedProjectPath = escapeShellPath(uri.fsPath);
-    const escapedPublishPath = escapeShellPath(publishPath);
-    const escapedProjectDir = escapeShellPath(projectDir);
-
-    let publishCommand = `dotnet publish "${escapedProjectPath}" -c ${configuration} -o "${escapedPublishPath}"`;
+    // Build the dotnet publish command with properly quoted paths
+    let publishCommand = `dotnet publish ${quotePath(uri.fsPath)} -c ${configuration} -o ${quotePath(publishPath)}`;
 
     if (framework && framework.trim()) {
         publishCommand += ` -f ${framework.trim()}`;
@@ -388,7 +395,7 @@ async function publishToFolder(uri: vscode.Uri, context: vscode.ExtensionContext
 
     // Create and show terminal
     const terminal = vscode.window.createTerminal(`Publish ${projectName}`);
-    terminal.sendText(`cd "${escapedProjectDir}"`);
+    terminal.sendText(`cd ${quotePath(projectDir)}`);
     terminal.sendText(publishCommand);
     terminal.show();
 
