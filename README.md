@@ -3,7 +3,7 @@
 [![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/LeviBickel.net-core-mvc-scaffolding.svg)](https://marketplace.visualstudio.com/items?itemName=LeviBickel.net-core-mvc-scaffolding)
 [![Visual Studio Marketplace Downloads](https://img.shields.io/visual-studio-marketplace/d/LeviBickel.net-core-mvc-scaffolding.svg)](https://marketplace.visualstudio.com/items?itemName=LeviBickel.net-core-mvc-scaffolding)
 
-Bring Visual Studio's powerful .NET Core MVC scaffolding and publishing capabilities to VS Code. This extension provides an intuitive right-click interface for generating MVC controllers, views, and publishing your applications - just like in Visual Studio.
+Bring Visual Studio's powerful .NET Core MVC scaffolding and publishing capabilities to VS Code. This extension provides an intuitive right-click interface for generating MVC controllers, views, and publishing your applications to folders or IIS servers - just like in Visual Studio.
 
 ## ✨ Features
 
@@ -19,6 +19,15 @@ Bring Visual Studio's powerful .NET Core MVC scaffolding and publishing capabili
 - **Smart defaults**: Remembers last publish location and auto-detects project framework version
 - **Folder selection**: Built-in folder picker for publish destinations
 - **Cross-platform support**: Works seamlessly on Windows, macOS, and Linux
+
+### 🌐 Publish to IIS (Web Deploy)
+- **Direct IIS deployment**: One-click publishing to IIS servers using Web Deploy (MSDeploy)
+- **Profile management**: Use existing `.pubxml` profiles or create new ones through VS Code
+- **Secure credentials**: Passwords stored in VS Code's secure storage (never in files)
+- **Visual Studio compatible**: Works with publish profiles created in Visual Studio
+- **Incremental deployment**: Only changed files are deployed for faster updates
+- **Production ready**: Supports authentication, SSL certificates, and multiple environments
+- **📖 Full guide**: See [IIS-PUBLISH-GUIDE.md](IIS-PUBLISH-GUIDE.md) for detailed setup and usage
 
 ### 🛡️ Robust Path Handling
 - **Special character support**: Handles paths with `!`, `@`, `#`, and other special characters
@@ -52,7 +61,7 @@ code --install-extension LeviBickel.net-core-mvc-scaffolding
 
 The extension will generate a complete MVC controller with CRUD operations and optionally create corresponding views.
 
-### Publishing Projects
+### Publishing to Folder
 
 1. **Right-click** on any `.csproj` file in your project
 2. Select **"Publish to Folder"** from the context menu
@@ -61,6 +70,34 @@ The extension will generate a complete MVC controller with CRUD operations and o
 5. Optionally specify target framework (e.g., `net8.0`)
 
 The extension will execute `dotnet publish` with your selected options.
+
+### Publishing to IIS (Web Deploy)
+
+#### Using Existing Profile
+1. **Right-click** on any `.csproj` file in your project
+2. Select **"Publish to IIS (Web Deploy)"** from the context menu
+3. Choose an existing profile from the list (📄 icon)
+4. Enter credentials if not already stored
+5. Select build configuration (Debug/Release)
+6. Confirm or adjust target framework
+
+#### Creating New Profile
+1. **Right-click** on any `.csproj` file in your project
+2. Select **"Publish to IIS (Web Deploy)"** from the context menu
+3. Choose **"➕ Create New Profile"**
+4. Follow the interactive wizard:
+   - **Profile name**: e.g., `Production`, `Staging`
+   - **Server URL**: e.g., `https://yourserver:8172/msdeploy.axd`
+   - **IIS Site name**: e.g., `Default Web Site/MyApp`
+   - **Username & Password**: Deployment credentials
+   - **SSL Certificate**: Allow untrusted (for self-signed certs)
+
+**📖 For detailed setup, troubleshooting, and server configuration, see [IIS-PUBLISH-GUIDE.md](IIS-PUBLISH-GUIDE.md)**
+
+**Server Requirements:**
+- IIS with Web Deploy 3.6+ installed
+- Web Management Service (WMSvc) running
+- Download Web Deploy: https://www.iis.net/downloads/microsoft/web-deploy
 
 ## 📋 Requirements
 
@@ -79,6 +116,8 @@ The extension will execute `dotnet publish` with your selected options.
 - ✅ Custom and existing DbContexts
 - ✅ Cross-platform development (Windows, macOS, Linux)
 - ✅ Workspaces with special characters in paths
+- ✅ IIS deployment with Web Deploy (Windows Server)
+- ✅ Multiple deployment environments (Dev, Staging, Production)
 
 ## 🔒 Security
 
@@ -90,7 +129,10 @@ This extension is actively maintained with regular security updates. All depende
 Right-click any C# model file to instantly scaffold a complete MVC controller with CRUD operations.
 
 ### Publish to Folder
-Right-click any .csproj file to publish your application with Visual Studio-like workflow.
+Right-click any .csproj file to publish your application to a local or network folder.
+
+### Publish to IIS
+One-click deployment to IIS servers using Web Deploy with secure credential storage and profile management.
 
 ## ❓ FAQ
 
@@ -108,6 +150,15 @@ Absolutely! The extension is fully cross-platform and works on Windows, macOS, a
 
 ### What .NET versions are supported?
 The extension supports .NET Core 6.0 and higher, including .NET 8.0 and .NET 9.0.
+
+### How do I publish to IIS?
+Right-click your `.csproj` file and select "Publish to IIS (Web Deploy)". You can use existing publish profiles or create new ones through the interactive wizard. See [IIS-PUBLISH-GUIDE.md](IIS-PUBLISH-GUIDE.md) for server setup requirements.
+
+### Are my deployment credentials safe?
+Yes! Deployment passwords are stored in VS Code's secure credential storage (same as Git credentials). They are never saved in files or committed to source control. You can choose whether to save credentials or be prompted each time.
+
+### Can I use publish profiles created in Visual Studio?
+Absolutely! This extension is fully compatible with `.pubxml` files created in Visual Studio. Just place them in `Properties/PublishProfiles/` and they'll be automatically detected.
 
 ## 🔧 Troubleshooting
 
