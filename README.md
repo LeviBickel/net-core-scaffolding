@@ -182,7 +182,28 @@ Absolutely! This extension is fully compatible with `.pubxml` files created in V
 
 ## 📝 Release Notes
 
-### 0.0.16 (Latest)
+### 0.0.17 (Latest)
+- **🆕 MAJOR FEATURE**: IIS Web Deploy Publishing
+  - One-click deployment to IIS servers using Web Deploy (MSDeploy)
+  - Full publish profile management - use existing `.pubxml` files or create new ones
+  - Secure credential storage using VS Code Secrets API (never stored in files)
+  - Interactive 4-step guided URL builder with auto-completion and validation
+  - Visual Studio compatible - works seamlessly with profiles created in VS
+  - Incremental deployment - only changed files are deployed
+  - Production-ready with SSL support and authentication handling
+- **📖 DOCUMENTATION**: Comprehensive IIS publishing guide ([IIS-PUBLISH-GUIDE.md](IIS-PUBLISH-GUIDE.md))
+  - Complete setup instructions for IIS and Web Deploy
+  - Troubleshooting guide with diagnostic scripts
+  - Security best practices and FAQ
+  - CI/CD integration examples
+- **✅ TESTING**: 23 automated tests for IIS publishing functionality
+  - XML generation and parsing validation
+  - Profile discovery and management
+  - Security verification (passwords never in files)
+  - Round-trip testing and edge cases
+- **🔧 IMPROVED**: Enhanced user experience with helpful validation messages
+
+### 0.0.16
 - **🐛 CRITICAL FIX**: Comprehensive cross-platform path handling
   - Implemented OS-aware path quoting for all terminal commands
   - Windows (PowerShell/CMD): Clean quoting without unnecessary escaping
