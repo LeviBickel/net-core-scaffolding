@@ -760,19 +760,13 @@ async function publishToIIS(uri: vscode.Uri, context: vscode.ExtensionContext) {
     const terminal = vscode.window.createTerminal(`Publish to IIS - ${projectName}`);
     terminal.sendText(`cd ${quotePath(projectDir)}`);
 
-    // Show command with masked password in terminal
-    const maskedCommand = publishCommand.replace(
-        `/p:Password=${config.password}`,
-        '/p:Password=********'
-    );
-    terminal.sendText(`echo Publishing with: ${maskedCommand}`);
+    // Show info message (don't echo command to avoid password exposure)
+    vscode.window.showInformationMessage(`Publishing ${projectName} to ${config.siteName}...`);
+    vscode.window.showWarningMessage('⚠️ Password will be visible in terminal output. For production, use Windows Authentication or CI/CD with secrets.');
 
-    // Execute actual command (password will still be in process args, but not visible in history)
+    // Execute publish command
     terminal.sendText(publishCommand);
     terminal.show();
-
-    vscode.window.showInformationMessage(`Publishing ${projectName} to IIS (${config.siteName})...`);
-    vscode.window.showWarningMessage('Note: Password is passed via command line. For production, consider using publish settings files.');
 }
 
 // Activate function
