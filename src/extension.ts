@@ -402,6 +402,423 @@ async function publishToFolder(uri: vscode.Uri, context: vscode.ExtensionContext
     vscode.window.showInformationMessage(`Publishing ${projectName} to ${publishPath}...`);
 }
 
+// ==================== IIS Web Deploy Functionality ====================
+
+interface PublishProfile {
+    name: string;
+    filePath: string;
+}
+
+interface WebDeployConfig {
+    profileName: string;
+    serverUrl: string;
+    siteName: string;
+    username: string;
+    password: string;
+    allowUntrustedCert: boolean;
+}
+
+// Function to find existing publish profiles
+function findPublishProfiles(projectDir: string): PublishProfile[] {
+    const profilesPath = path.join(projectDir, 'Properties', 'PublishProfiles');
+    const profiles: PublishProfile[] = [];
+
+    if (!fs.existsSync(profilesPath)) {
+        return profiles;
+    }
+
+    const files = fs.readdirSync(profilesPath);
+    for (const file of files) {
+        if (file.endsWith('.pubxml')) {
+            profiles.push({
+                name: path.basename(file, '.pubxml'),
+                filePath: path.join(profilesPath, file)
+            });
+        }
+    }
+
+    return profiles;
+}
+
+// Function to parse publish profile XML
+function parsePublishProfile(filePath: string): Partial<WebDeployConfig> {
+    try {
+        const content = fs.readFileSync(filePath, 'utf-8');
+
+        // Extract server URL
+        const serverMatch = content.match(/<MSDeployServiceURL>([^<]+)<\/MSDeployServiceURL>/);
+        const serverUrl = serverMatch ? serverMatch[1] : '';
+
+        // Extract site name
+        const siteMatch = content.match(/<DeployIisAppPath>([^<]+)<\/DeployIisAppPath>/);
+        const siteName = siteMatch ? siteMatch[1] : '';
+
+        // Extract username
+        const userMatch = content.match(/<UserName>([^<]+)<\/UserName>/);
+        const username = userMatch ? userMatch[1] : '';
+
+        return {
+            serverUrl,
+            siteName,
+            username
+        };
+    } catch (error) {
+        console.error('Error parsing publish profile:', error);
+        return {};
+    }
+}
+
+// Function to generate publish profile XML
+function generatePublishProfileXml(config: WebDeployConfig): string {
+    return `<?xml version="1.0" encoding="utf-8"?>
+<!--
+This file is used by the publish/package process of your Web project.
+You can customize the behavior of this process by editing this MSBuild file.
+-->
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <WebPublishMethod>MSDeploy</WebPublishMethod>
+    <LastUsedBuildConfiguration>Release</LastUsedBuildConfiguration>
+    <LastUsedPlatform>Any CPU</LastUsedPlatform>
+    <SiteUrlToLaunchAfterPublish />
+    <LaunchSiteAfterPublish>True</LaunchSiteAfterPublish>
+    <ExcludeApp_Data>False</ExcludeApp_Data>
+    <ProjectGuid>00000000-0000-0000-0000-000000000000</ProjectGuid>
+    <MSDeployServiceURL>${config.serverUrl}</MSDeployServiceURL>
+    <DeployIisAppPath>${config.siteName}</DeployIisAppPath>
+    <RemoteSitePhysicalPath />
+    <SkipExtraFilesOnServer>True</SkipExtraFilesOnServer>
+    <MSDeployPublishMethod>WMSVC</MSDeployPublishMethod>
+    <EnableMSDeployBackup>True</EnableMSDeployBackup>
+    <UserName>${config.username}</UserName>
+    <_SavePWD>False</_SavePWD>
+    <PublishDatabaseSettings>
+      <Objects xmlns="" />
+    </PublishDatabaseSettings>
+  </PropertyGroup>
+</Project>`;
+}
+
+// Function to save publish profile
+async function savePublishProfile(projectDir: string, config: WebDeployConfig): Promise<string> {
+    const profilesPath = path.join(projectDir, 'Properties', 'PublishProfiles');
+
+    // Create directories if they don't exist
+    if (!fs.existsSync(path.join(projectDir, 'Properties'))) {
+        fs.mkdirSync(path.join(projectDir, 'Properties'));
+    }
+    if (!fs.existsSync(profilesPath)) {
+        fs.mkdirSync(profilesPath);
+    }
+
+    const profilePath = path.join(profilesPath, `${config.profileName}.pubxml`);
+    const xmlContent = generatePublishProfileXml(config);
+
+    fs.writeFileSync(profilePath, xmlContent, 'utf-8');
+    return profilePath;
+}
+
+// Function to store credentials securely
+async function storeCredentials(context: vscode.ExtensionContext, profileName: string, username: string, password: string): Promise<void> {
+    await context.secrets.store(`iis-publish-${profileName}-username`, username);
+    await context.secrets.store(`iis-publish-${profileName}-password`, password);
+}
+
+// Function to retrieve credentials
+async function getCredentials(context: vscode.ExtensionContext, profileName: string): Promise<{ username: string, password: string } | null> {
+    const username = await context.secrets.get(`iis-publish-${profileName}-username`);
+    const password = await context.secrets.get(`iis-publish-${profileName}-password`);
+
+    if (username && password) {
+        return { username, password };
+    }
+    return null;
+}
+
+// Function to prompt for credentials
+async function promptForCredentials(existingUsername?: string): Promise<{ username: string, password: string } | null> {
+    const username = await vscode.window.showInputBox({
+        prompt: 'Enter deployment username',
+        placeHolder: 'username or DOMAIN\\username',
+        value: existingUsername || ''
+    });
+
+    if (!username) {
+        return null;
+    }
+
+    const password = await vscode.window.showInputBox({
+        prompt: 'Enter deployment password',
+        password: true
+    });
+
+    if (!password) {
+        return null;
+    }
+
+    return { username, password };
+}
+
+// Function to create a new publish profile
+async function createNewPublishProfile(context: vscode.ExtensionContext, projectDir: string): Promise<WebDeployConfig | null> {
+    // Profile name
+    const profileName = await vscode.window.showInputBox({
+        prompt: 'Enter publish profile name',
+        placeHolder: 'e.g., Production, Staging, Development'
+    });
+
+    if (!profileName) {
+        return null;
+    }
+
+    // Step 1: Get server name or IP
+    const serverName = await vscode.window.showInputBox({
+        prompt: 'Enter server name or IP address',
+        placeHolder: 'e.g., webserver-2 or 192.168.21.83',
+        validateInput: (value) => {
+            if (!value || value.trim() === '') {
+                return 'Server name or IP is required';
+            }
+            return null;
+        }
+    });
+
+    if (!serverName) {
+        return null;
+    }
+
+    // Step 2: Choose protocol
+    const protocol = await vscode.window.showQuickPick(
+        [
+            { label: 'HTTPS (Recommended)', value: 'https://' },
+            { label: 'HTTP (Not secure)', value: 'http://' }
+        ],
+        {
+            placeHolder: 'Select protocol'
+        }
+    );
+
+    if (!protocol) {
+        return null;
+    }
+
+    // Step 3: Get port (with default)
+    const port = await vscode.window.showInputBox({
+        prompt: 'Enter Web Management Service port',
+        placeHolder: '8172',
+        value: '8172',
+        validateInput: (value) => {
+            if (!value || value.trim() === '') {
+                return 'Port is required';
+            }
+            if (!/^\d+$/.test(value)) {
+                return 'Port must be a number';
+            }
+            return null;
+        }
+    });
+
+    if (!port) {
+        return null;
+    }
+
+    // Auto-construct the full URL
+    const autoServerUrl = `${protocol.value}${serverName.trim()}:${port}/msdeploy.axd`;
+
+    // Step 4: Confirm/edit the constructed URL
+    const serverUrl = await vscode.window.showInputBox({
+        prompt: 'Confirm or edit the Web Deploy URL',
+        value: autoServerUrl,
+        validateInput: (value) => {
+            if (!value || value.trim() === '') {
+                return 'Server URL is required';
+            }
+            if (!value.startsWith('http://') && !value.startsWith('https://')) {
+                return 'URL must start with http:// or https://';
+            }
+            if (!value.includes('/msdeploy.axd')) {
+                return 'URL should end with /msdeploy.axd';
+            }
+            return null;
+        }
+    });
+
+    if (!serverUrl) {
+        return null;
+    }
+
+    // Site name
+    const siteName = await vscode.window.showInputBox({
+        prompt: 'Enter IIS site name',
+        placeHolder: 'e.g., Default Web Site/MyApp'
+    });
+
+    if (!siteName) {
+        return null;
+    }
+
+    // Credentials
+    const credentials = await promptForCredentials();
+    if (!credentials) {
+        return null;
+    }
+
+    // Allow untrusted certificate
+    const allowUntrusted = await vscode.window.showQuickPick(['Yes', 'No'], {
+        placeHolder: 'Allow untrusted SSL certificates? (useful for self-signed certs)'
+    });
+
+    const config: WebDeployConfig = {
+        profileName,
+        serverUrl,
+        siteName,
+        username: credentials.username,
+        password: credentials.password,
+        allowUntrustedCert: allowUntrusted === 'Yes'
+    };
+
+    // Save profile
+    try {
+        await savePublishProfile(projectDir, config);
+        await storeCredentials(context, profileName, credentials.username, credentials.password);
+        vscode.window.showInformationMessage(`Publish profile "${profileName}" created successfully`);
+        return config;
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to create publish profile: ${error}`);
+        return null;
+    }
+}
+
+// Main function to handle IIS publishing
+async function publishToIIS(uri: vscode.Uri, context: vscode.ExtensionContext) {
+    if (!uri || !uri.fsPath.endsWith('.csproj')) {
+        vscode.window.showErrorMessage('Please select a .csproj file.');
+        return;
+    }
+
+    const projectDir = path.dirname(uri.fsPath);
+    const projectName = path.basename(uri.fsPath, '.csproj');
+
+    // Find existing profiles
+    const existingProfiles = findPublishProfiles(projectDir);
+
+    // Build options for quick pick
+    const options: string[] = [];
+    if (existingProfiles.length > 0) {
+        options.push(...existingProfiles.map(p => `📄 ${p.name}`));
+        options.push('---');
+    }
+    options.push('➕ Create New Profile');
+
+    // Show profile selection
+    const selected = await vscode.window.showQuickPick(options, {
+        placeHolder: 'Select a publish profile or create a new one'
+    });
+
+    if (!selected) {
+        return;
+    }
+
+    let config: WebDeployConfig | null = null;
+    let profileName: string;
+
+    if (selected === '➕ Create New Profile') {
+        // Create new profile
+        config = await createNewPublishProfile(context, projectDir);
+        if (!config) {
+            return;
+        }
+        profileName = config.profileName;
+    } else {
+        // Use existing profile
+        profileName = selected.replace('📄 ', '');
+        const profile = existingProfiles.find(p => p.name === profileName);
+
+        if (!profile) {
+            vscode.window.showErrorMessage('Selected profile not found');
+            return;
+        }
+
+        // Parse profile for server info
+        const profileData = parsePublishProfile(profile.filePath);
+
+        // Try to get stored credentials
+        let credentials = await getCredentials(context, profileName);
+
+        // If no stored credentials, prompt for them
+        if (!credentials) {
+            credentials = await promptForCredentials(profileData.username);
+            if (!credentials) {
+                return;
+            }
+
+            // Ask if they want to save credentials
+            const saveCredsChoice = await vscode.window.showQuickPick(['Yes', 'No'], {
+                placeHolder: 'Save credentials for future use?'
+            });
+
+            if (saveCredsChoice === 'Yes') {
+                await storeCredentials(context, profileName, credentials.username, credentials.password);
+            }
+        }
+
+        config = {
+            profileName,
+            serverUrl: profileData.serverUrl || '',
+            siteName: profileData.siteName || '',
+            username: credentials.username,
+            password: credentials.password,
+            allowUntrustedCert: true
+        };
+    }
+
+    // Select build configuration
+    const configuration = await vscode.window.showQuickPick(['Debug', 'Release'], {
+        placeHolder: 'Select build configuration'
+    });
+
+    if (!configuration) {
+        return;
+    }
+
+    // Get target framework
+    const detectedFramework = getTargetFramework(uri.fsPath);
+    const defaultFramework = detectedFramework || 'net8.0';
+
+    const framework = await vscode.window.showInputBox({
+        prompt: 'Target framework (leave empty for default)',
+        placeHolder: defaultFramework,
+        value: defaultFramework
+    });
+
+    // Build the publish command
+    let publishCommand = `dotnet publish ${quotePath(uri.fsPath)} -c ${configuration} /p:PublishProfile=${profileName}`;
+
+    if (framework && framework.trim()) {
+        publishCommand += ` -f ${framework.trim()}`;
+    }
+
+    // Add credentials as MSBuild parameters
+    publishCommand += ` /p:UserName=${config.username}`;
+    publishCommand += ` /p:Password=${config.password}`;
+
+    if (config.allowUntrustedCert) {
+        publishCommand += ` /p:AllowUntrustedCertificate=true`;
+    }
+
+    // Create and show terminal
+    const terminal = vscode.window.createTerminal(`Publish to IIS - ${projectName}`);
+    terminal.sendText(`cd ${quotePath(projectDir)}`);
+
+    // Show info message (don't echo command to avoid password exposure)
+    vscode.window.showInformationMessage(`Publishing ${projectName} to ${config.siteName}...`);
+    vscode.window.showWarningMessage('⚠️ Password will be visible in terminal output. For production, use Windows Authentication or CI/CD with secrets.');
+
+    // Execute publish command
+    terminal.sendText(publishCommand);
+    terminal.show();
+}
+
 // Activate function
 export function activate(context: vscode.ExtensionContext) {
     // Register the publish to folder command with context
@@ -409,8 +826,14 @@ export function activate(context: vscode.ExtensionContext) {
         await publishToFolder(uri, context);
     });
 
+    // Register the publish to IIS command with context
+    const publishToIISCommand = vscode.commands.registerCommand('extension.publishToIIS', async (uri: vscode.Uri) => {
+        await publishToIIS(uri, context);
+    });
+
     context.subscriptions.push(scaffoldCommand);
     context.subscriptions.push(publishToFolderCommand);
+    context.subscriptions.push(publishToIISCommand);
 }
 
 // Deactivate function

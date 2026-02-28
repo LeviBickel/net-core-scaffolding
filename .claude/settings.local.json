@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test)",
+      "Bash(node test-path-quoting.js)",
+      "Bash(git add README.md package.json src/extension.ts TESTING-SUMMARY.md test-path-quoting.js)",
+      "Bash(git commit:*)",
+      "Bash(npm run compile)",
+      "Bash(npm install)",
+      "Bash(npm audit)"
+    ]
+  }
+}

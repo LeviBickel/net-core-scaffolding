@@ -1,7 +1,7 @@
 {
   "name": "net-core-mvc-scaffolding",
   "displayName": ".NET Core MVC Scaffolding & Publishing",
-  "description": "Complete Visual Studio-like scaffolding and publishing tools for .NET Core MVC projects in VS Code",
+  "description": "Complete Visual Studio-like scaffolding and publishing tools for .NET Core MVC projects. Generate controllers, publish to folders or IIS with Web Deploy.",
   "version": "0.0.16",
   "publisher": "LeviBickel",
   "repository": {
@@ -31,6 +31,10 @@
       {
         "command": "extension.publishToFolder",
         "title": "Publish to Folder"
+      },
+      {
+        "command": "extension.publishToIIS",
+        "title": "Publish to IIS (Web Deploy)"
       }
     ],
     "menus": {
@@ -42,6 +46,11 @@
         },
         {
           "command": "extension.publishToFolder",
+          "when": "resourceExtname == '.csproj'",
+          "group": "navigation"
+        },
+        {
+          "command": "extension.publishToIIS",
           "when": "resourceExtname == '.csproj'",
           "group": "navigation"
         }
@@ -68,7 +77,7 @@
     "@types/vscode": "^1.95.0",
     "@typescript-eslint/eslint-plugin": "^8.10.0",
     "@typescript-eslint/parser": "^8.7.0",
-    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.4.1",
     "esbuild": "^0.25.9",
     "eslint": "^9.13.0",
@@ -78,5 +87,9 @@
   "dependencies": {
     "@vscode/vsce": "^3.2.1",
     "glob": "^11.0.0"
+  },
+  "overrides": {
+    "serialize-javascript": "^7.0.3",
+    "diff": "^8.0.3"
   }
 }
