@@ -571,23 +571,73 @@ async function createNewPublishProfile(context: vscode.ExtensionContext, project
         return null;
     }
 
-    // Server URL
-    const serverUrl = await vscode.window.showInputBox({
-        prompt: 'Enter Web Deploy server URL (include https://, port :8172, and /msdeploy.axd)',
-        placeHolder: 'https://yourserver:8172/msdeploy.axd or https://192.168.1.100:8172/msdeploy.axd',
-        value: 'https://',
+    // Step 1: Get server name or IP
+    const serverName = await vscode.window.showInputBox({
+        prompt: 'Enter server name or IP address',
+        placeHolder: 'e.g., webserver-2 or 192.168.21.83',
         validateInput: (value) => {
-            if (!value || value === 'https://') {
+            if (!value || value.trim() === '') {
+                return 'Server name or IP is required';
+            }
+            return null;
+        }
+    });
+
+    if (!serverName) {
+        return null;
+    }
+
+    // Step 2: Choose protocol
+    const protocol = await vscode.window.showQuickPick(
+        [
+            { label: 'HTTPS (Recommended)', value: 'https://' },
+            { label: 'HTTP (Not secure)', value: 'http://' }
+        ],
+        {
+            placeHolder: 'Select protocol'
+        }
+    );
+
+    if (!protocol) {
+        return null;
+    }
+
+    // Step 3: Get port (with default)
+    const port = await vscode.window.showInputBox({
+        prompt: 'Enter Web Management Service port',
+        placeHolder: '8172',
+        value: '8172',
+        validateInput: (value) => {
+            if (!value || value.trim() === '') {
+                return 'Port is required';
+            }
+            if (!/^\d+$/.test(value)) {
+                return 'Port must be a number';
+            }
+            return null;
+        }
+    });
+
+    if (!port) {
+        return null;
+    }
+
+    // Auto-construct the full URL
+    const autoServerUrl = `${protocol.value}${serverName.trim()}:${port}/msdeploy.axd`;
+
+    // Step 4: Confirm/edit the constructed URL
+    const serverUrl = await vscode.window.showInputBox({
+        prompt: 'Confirm or edit the Web Deploy URL',
+        value: autoServerUrl,
+        validateInput: (value) => {
+            if (!value || value.trim() === '') {
                 return 'Server URL is required';
             }
             if (!value.startsWith('http://') && !value.startsWith('https://')) {
                 return 'URL must start with http:// or https://';
             }
             if (!value.includes('/msdeploy.axd')) {
-                return 'URL should end with /msdeploy.axd (e.g., https://server:8172/msdeploy.axd)';
-            }
-            if (!value.match(/:\d+\//)) {
-                return 'URL should include port number (typically :8172)';
+                return 'URL should end with /msdeploy.axd';
             }
             return null;
         }
