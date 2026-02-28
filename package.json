@@ -31,6 +31,10 @@
       {
         "command": "extension.publishToFolder",
         "title": "Publish to Folder"
+      },
+      {
+        "command": "extension.publishToIIS",
+        "title": "Publish to IIS (Web Deploy)"
       }
     ],
     "menus": {
@@ -42,6 +46,11 @@
         },
         {
           "command": "extension.publishToFolder",
+          "when": "resourceExtname == '.csproj'",
+          "group": "navigation"
+        },
+        {
+          "command": "extension.publishToIIS",
           "when": "resourceExtname == '.csproj'",
           "group": "navigation"
         }
