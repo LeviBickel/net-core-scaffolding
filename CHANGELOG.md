@@ -2,6 +2,28 @@
 
 All notable changes to the "net-core-scaffolding" extension will be documented in this file.
 
+## [0.0.18] - 2026-04-12
+
+### Security
+- **HIGH**: Fixed `flatted` vulnerability (GHSA-25h7-pfq9-p65f / GHSA-rf6f-7fwh-wjgh) — unbounded recursion DoS and Prototype Pollution via `parse()`
+- **HIGH**: Fixed `lodash` vulnerability (GHSA-r5fr-rjxr-66jc / GHSA-f23m-r3pf-42rh) — Code Injection via `_.template` and Prototype Pollution via `_.unset`/`_.omit`
+- **HIGH**: Fixed `picomatch` vulnerability (GHSA-3v7f-55p6-f55p / GHSA-c2c7-rcm5-vvqj) — Method Injection in POSIX character classes and ReDoS via extglob quantifiers
+- **HIGH**: Fixed `undici` vulnerabilities — WebSocket 64-bit length overflow, HTTP Request/Response Smuggling, CRLF Injection, and unbounded memory DoS
+- **MODERATE**: Fixed `brace-expansion` vulnerability (GHSA-f886-m6hf-6m8v) — zero-step sequence causes process hang and memory exhaustion
+- **MODERATE**: Fixed `serialize-javascript` CPU exhaustion DoS via crafted array-like objects
+
+### Updated
+- `@types/vscode`: 1.109.0 → 1.115.0
+- `@types/node`: 20.19.33 → 20.19.39
+- `@typescript-eslint/eslint-plugin` & `parser`: 8.56.1 → 8.58.1
+- `eslint`: 9.39.3 → 9.39.4
+- ~40 additional transitive dependency updates
+
+### Verified
+- All TypeScript type checks passing
+- All ESLint checks passing
+- Zero security vulnerabilities detected
+
 ## [0.0.15] - 2026-02-27
 
 ### Security
