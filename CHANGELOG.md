@@ -2,6 +2,35 @@
 
 All notable changes to the "net-core-scaffolding" extension will be documented in this file.
 
+## [0.0.20] - 2026-07-07
+
+### Security
+- **CRITICAL**: Fixed `shell-quote` vulnerability (CVE-2026-9277)
+- **HIGH**: Fixed `form-data` vulnerability (CVE-2026-12143)
+- **HIGH**: Fixed `linkify-it` vulnerability (CVE-2026-48801)
+- **HIGH**: Fixed `tmp` vulnerability (CVE-2026-44705)
+- **HIGH**: Fixed `undici` vulnerabilities (CVE-2026-9697, CVE-2026-6734, CVE-2026-12151, CVE-2026-6733, CVE-2026-11525)
+- **MODERATE**: Fixed `markdown-it` vulnerability (CVE-2026-48988)
+- **MODERATE**: Fixed `js-yaml` quadratic-complexity DoS (GHSA-h67p-54hq-rp68)
+
+### Updated
+- Added `package.json` overrides pinning `form-data`, `linkify-it`, `markdown-it`, `shell-quote`, `tmp`, and `undici` to patched versions
+
+### Verified
+- All TypeScript type checks passing
+- Zero security vulnerabilities detected (`npm audit`)
+
+## [0.0.19] - 2026-07-07
+
+### Security
+- **HIGH**: Fixed `fast-uri` vulnerabilities (GHSA-q3j6-qgpj-74h6, GHSA-v39h-62p7-jpjc)
+- **MODERATE**: Fixed `brace-expansion` vulnerability (GHSA-jxxr-4gwj-5jf2)
+- **MODERATE**: Fixed `qs` vulnerability (GHSA-q8mj-m7cp-5q26)
+- **MODERATE**: Removed vulnerable `uuid` 8.3.2 (GHSA-w5hq-g745-h8pq) by updating `@azure/msal-node` to 5.2.2+
+
+### Verified
+- Zero security vulnerabilities detected
+
 ## [0.0.18] - 2026-04-12
 
 ### Security

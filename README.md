@@ -182,7 +182,33 @@ Absolutely! This extension is fully compatible with `.pubxml` files created in V
 
 ## 📝 Release Notes
 
-### 0.0.17 (Latest)
+### 0.0.20 (Latest)
+- **🔒 SECURITY**: Fixed 9 additional dependency vulnerabilities (2 high/critical, 7 high/moderate)
+  - Updated `form-data` to 4.0.6+ (CVE-2026-12143 - High)
+  - Updated `linkify-it` to 5.0.1+ (CVE-2026-48801 - High)
+  - Updated `markdown-it` to 14.2.0+ (CVE-2026-48988 - Moderate)
+  - Updated `shell-quote` to 1.8.4+ (CVE-2026-9277 - Critical)
+  - Updated `tmp` to 0.2.6+ (CVE-2026-44705 - High)
+  - Updated `undici` to 7.28.0+ (CVE-2026-9697, CVE-2026-6734, CVE-2026-12151, and others - High/Low)
+  - Updated `js-yaml` to resolve quadratic-complexity DoS in merge key handling (GHSA-h67p-54hq-rp68 - Moderate)
+- **✅ VERIFIED**: Zero vulnerabilities detected (`npm audit`)
+
+### 0.0.19
+- **🔒 SECURITY**: Fixed 5 dependency vulnerabilities (1 high, 4 moderate)
+  - Updated `fast-uri` to 3.1.2+ (GHSA-q3j6-qgpj-74h6, GHSA-v39h-62p7-jpjc - High: path traversal / host confusion)
+  - Updated `brace-expansion` to 5.0.6+ (GHSA-jxxr-4gwj-5jf2 - Moderate: DoS via large numeric range)
+  - Updated `qs` to 6.15.2+ (GHSA-q8mj-m7cp-5q26 - Moderate: DoS via null entries in stringify)
+  - Updated `@azure/msal-node` to 5.2.2+ which drops `uuid` dependency entirely
+  - Removed vulnerable `uuid` 8.3.2 (GHSA-w5hq-g745-h8pq - Moderate: missing buffer bounds check)
+- **✅ VERIFIED**: Zero vulnerabilities detected
+
+### 0.0.18
+- **🔒 SECURITY**: Dependency security updates and integrity fixes
+  - Added `strip-ansi` override to resolve npm integrity issue
+  - Updated transitive dependencies to secure versions
+- **✅ VERIFIED**: Zero vulnerabilities detected
+
+### 0.0.17
 - **🆕 MAJOR FEATURE**: IIS Web Deploy Publishing
   - One-click deployment to IIS servers using Web Deploy (MSDeploy)
   - Full publish profile management - use existing `.pubxml` files or create new ones
