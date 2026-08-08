@@ -859,7 +859,14 @@ function remoteWindowsJoin(remoteDir: string, fileName: string): string {
 // identifier for (local host, remote host, port, user), keeping the socket path short
 // regardless of how deep the OS temp directory is.
 function sshControlPath(): string {
-    const controlDir = path.join(os.tmpdir(), 'iis-ssh-cm');
+    // Unix domain socket paths are capped at ~104-108 bytes by the OS. OpenSSH expands
+    // %C to a 40-char hash and appends its own ~17-char random suffix while creating the
+    // socket, so os.tmpdir() (e.g. macOS's deeply nested /var/folders/.../T/) reliably
+    // blows past that limit. /tmp is short and fixed, keeping the expanded path well
+    // under the cap. Windows doesn't share this AF_UNIX path constraint the same way.
+    const controlDir = process.platform === 'win32'
+        ? path.join(os.tmpdir(), 'iis-ssh-cm')
+        : '/tmp/iis-ssh-cm';
     if (!fs.existsSync(controlDir)) {
         fs.mkdirSync(controlDir, { recursive: true });
     }

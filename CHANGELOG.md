@@ -2,6 +2,19 @@
 
 All notable changes to the "net-core-scaffolding" extension will be documented in this file.
 
+## [0.0.23] - 2026-08-08
+
+### Fixed
+- **CRITICAL**: Fixed a regression from 0.0.22 that broke SSH + PowerShell publishing entirely on macOS. The new `ControlMaster` connection-reuse socket was placed under `os.tmpdir()`, whose deeply-nested per-process path (e.g. macOS's `/var/folders/.../T/`) combined with OpenSSH's own `%C` hash and random suffix exceeded the ~104-byte Unix domain socket path limit, so every `ssh`/`scp` call failed with `unix_listener: ... too long for Unix domain socket`. The control socket now lives under `/tmp` on macOS/Linux, verified against the OS's actual socket path limit (not just the unexpanded template string, which is how this slipped through in 0.0.22).
+
+### Security
+- Fixed 4 high severity dependency vulnerabilities via `npm audit fix` and updated `overrides` pins:
+  - `brace-expansion` - DoS via exponential-time/unbounded expansion (GHSA-3jxr-9vmj-r5cp, GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895)
+  - `fast-uri` to 3.1.5+ - host confusion via backslash authority delimiter / failed IDN canonicalization (GHSA-v2hh-gcrm-f6hx, GHSA-7p8r-x3mc-p8w7, GHSA-4c8g-83qw-93j6)
+  - `js-yaml` to 4.3.1+ - quadratic CPU consumption in `!!omap` resolution (GHSA-5p4m-2wfm-xmqj)
+  - `undici` to 7.29.0+ - response desynchronization, cross-user cache/cookie disclosure, CRLF injection (GHSA-8xcm-r25x-g524, GHSA-4cwx-7wf7-3272, GHSA-m8rv-5g2x-5cg5, GHSA-jr45-8vmc-qm54, GHSA-v3r7-h72x-cjcm)
+- **✅ VERIFIED**: Zero vulnerabilities detected (`npm audit`)
+
 ## [0.0.22] - 2026-08-08
 
 ### Changed

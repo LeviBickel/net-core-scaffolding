@@ -188,7 +188,12 @@ Absolutely! This extension is fully compatible with `.pubxml` files created in V
 
 ## 📝 Release Notes
 
-### 0.0.22 (Latest)
+### 0.0.23 (Latest)
+- **🚨 CRITICAL FIX**: Fixed a 0.0.22 regression that broke SSH + PowerShell publishing entirely on macOS (`unix_listener: ... too long for Unix domain socket`) — the `ControlMaster` connection-reuse socket now lives under `/tmp` instead of the OS's often-deeply-nested temp directory
+- **🔒 SECURITY**: Fixed 4 high severity dependency vulnerabilities (`brace-expansion`, `fast-uri`, `js-yaml`, `undici`)
+- **✅ VERIFIED**: Zero vulnerabilities detected (`npm audit`)
+
+### 0.0.22
 - **⚡ PERFORMANCE**: Faster SSH + PowerShell publishing
   - Reuses a single multiplexed SSH connection (`ControlMaster`/`ControlPersist`) across every step of a deploy instead of opening a new connection per command
   - Copies the whole publish output in one `scp` invocation instead of one per top-level file/folder
