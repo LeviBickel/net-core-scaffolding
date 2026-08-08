@@ -2,6 +2,13 @@
 
 All notable changes to the "net-core-scaffolding" extension will be documented in this file.
 
+## [0.0.24] - 2026-08-08
+
+### Fixed
+- **SSH publish: file copy failures on in-process hosted apps** - `app_offline.htm` alone doesn't reliably release file locks for apps using in-process hosting (the .NET default since Core 3.0), since the app's DLLs are loaded directly into the `w3wp.exe` worker process rather than a separate process `app_offline.htm` can just kill. Deploys could fail with `scp: dest open "...": Failure` on a subset of DLLs still held open by the running app.
+  - The deploy now explicitly stops the target application pool and polls `Get-WebAppPoolState` until IIS actually reports it `Stopped` (up to 30s) before copying files, instead of a fixed 2-second guess
+  - The app pool is explicitly started back up after the copy completes (replacing the previous best-effort `Restart-WebAppPool` safety net)
+
 ## [0.0.23] - 2026-08-08
 
 ### Fixed

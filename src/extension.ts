@@ -996,7 +996,20 @@ async function publishToIISviaSsh(
                     fs.writeFileSync(offlineFilePath, '<html><body>Deploying update, back shortly...</body></html>', 'utf-8');
                     await runCommand('scp', scpArgs(profile, [offlineFilePath], remoteOfflineFile), outputChannel);
                     fs.rmSync(offlineFilePath, { force: true });
-                    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+                    // app_offline.htm alone doesn't reliably release file locks for
+                    // in-process hosted apps (the .NET default since Core 3.0), since the
+                    // app's DLLs are loaded directly into the w3wp.exe worker process, not
+                    // a separate process app_offline.htm can just kill. Stop the app pool
+                    // outright and poll until IIS actually reports it stopped before
+                    // copying, instead of guessing with a fixed delay — a slow-draining or
+                    // actively-loaded app pool can easily take longer than a couple seconds.
+                    progress.report({ message: 'Stopping application pool...' });
+                    await runCommand('ssh', sshArgs(profile,
+                        `Import-Module WebAdministration; Stop-WebAppPool -Name ${quotePowerShellSingle(profile.appPoolName)}; ` +
+                        `$deadline = (Get-Date).AddSeconds(30); ` +
+                        `while ((Get-WebAppPoolState -Name ${quotePowerShellSingle(profile.appPoolName)}).Value -ne 'Stopped' -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }`
+                    ), outputChannel);
 
                     progress.report({ message: 'Copying published files...' });
                     const entries = fs.readdirSync(tempDir).map((entry) => path.join(tempDir, entry));
@@ -1004,18 +1017,12 @@ async function publishToIISviaSsh(
 
                     progress.report({ message: 'Bringing app back online...' });
                     await runCommand('ssh', sshArgs(profile, `Remove-Item -LiteralPath ${quotePowerShellSingle(remoteOfflineFile)} -Force -ErrorAction SilentlyContinue`), outputChannel);
-
-                    progress.report({ message: 'Recycling app pool...' });
-                    try {
-                        await runCommand('ssh', sshArgs(profile, `Import-Module WebAdministration; Restart-WebAppPool -Name ${quotePowerShellSingle(profile.appPoolName)}`), outputChannel);
-                    } catch (poolError) {
-                        outputChannel.appendLine(`Warning: could not recycle app pool automatically: ${poolError}`);
-                        vscode.window.showWarningMessage(`Deployed, but could not recycle app pool "${profile.appPoolName}" automatically. It may need to be recycled manually.`);
-                    }
+                    await runCommand('ssh', sshArgs(profile, `Import-Module WebAdministration; Start-WebAppPool -Name ${quotePowerShellSingle(profile.appPoolName)}`), outputChannel);
                 } catch (deployError) {
                     // Best effort: bring the app back online even if a later step failed
                     try {
                         await runCommand('ssh', sshArgs(profile, `Remove-Item -LiteralPath ${quotePowerShellSingle(remoteOfflineFile)} -Force -ErrorAction SilentlyContinue`), outputChannel);
+                        await runCommand('ssh', sshArgs(profile, `Import-Module WebAdministration; Start-WebAppPool -Name ${quotePowerShellSingle(profile.appPoolName)} -ErrorAction SilentlyContinue`), outputChannel);
                     } catch {
                         // Ignore secondary failure; the original error is what matters
                     }

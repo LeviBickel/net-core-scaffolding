@@ -188,7 +188,11 @@ Absolutely! This extension is fully compatible with `.pubxml` files created in V
 
 ## 📝 Release Notes
 
-### 0.0.23 (Latest)
+### 0.0.24 (Latest)
+- **🐛 FIX**: SSH publish could fail to copy some files (`scp: dest open ...: Failure`) on apps using in-process IIS hosting, since `app_offline.htm` alone doesn't reliably release file locks held by the running `w3wp.exe` worker process
+  - The deploy now explicitly stops the target application pool and polls until IIS actually reports it stopped (up to 30s) before copying, instead of a fixed 2-second wait, then explicitly starts it back up afterward
+
+### 0.0.23
 - **🚨 CRITICAL FIX**: Fixed a 0.0.22 regression that broke SSH + PowerShell publishing entirely on macOS (`unix_listener: ... too long for Unix domain socket`) — the `ControlMaster` connection-reuse socket now lives under `/tmp` instead of the OS's often-deeply-nested temp directory
 - **🔒 SECURITY**: Fixed 4 high severity dependency vulnerabilities (`brace-expansion`, `fast-uri`, `js-yaml`, `undici`)
 - **✅ VERIFIED**: Zero vulnerabilities detected (`npm audit`)
