@@ -2,6 +2,12 @@
 
 All notable changes to the "net-core-scaffolding" extension will be documented in this file.
 
+## [0.0.22] - 2026-08-08
+
+### Changed
+- **Faster SSH + PowerShell publishing** - the SSH deploy method now reuses a single multiplexed SSH connection (`ControlMaster`/`ControlPersist`) across every step of a deploy instead of opening a new connection per command, copies the whole publish output in one `scp` invocation instead of one per top-level file/folder, and enables `scp`/`ssh` compression (`-C`)
+  - Still does a full copy every deploy (no delta/incremental sync yet) — that remains a known limitation
+
 ## [0.0.21] - 2026-08-08
 
 ### Added

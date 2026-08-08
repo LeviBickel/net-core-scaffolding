@@ -853,29 +853,64 @@ function remoteWindowsJoin(remoteDir: string, fileName: string): string {
     return `${remoteDir.replace(/[\\/]+$/, '')}\\${fileName}`;
 }
 
+// A single deploy makes several separate ssh/scp calls (offline file, copy, bring back
+// online, recycle pool). Sharing one multiplexed connection across all of them avoids
+// paying a full TCP+SSH handshake for each call. %C is a pre-hashed, fixed-length
+// identifier for (local host, remote host, port, user), keeping the socket path short
+// regardless of how deep the OS temp directory is.
+function sshControlPath(): string {
+    const controlDir = path.join(os.tmpdir(), 'iis-ssh-cm');
+    if (!fs.existsSync(controlDir)) {
+        fs.mkdirSync(controlDir, { recursive: true });
+    }
+    return path.join(controlDir, 'cm-%C');
+}
+
+function sshConnectionOptions(): string[] {
+    return [
+        '-o', 'BatchMode=yes',
+        '-o', 'StrictHostKeyChecking=accept-new',
+        '-o', 'ControlMaster=auto',
+        '-o', 'ControlPersist=60s',
+        '-o', `ControlPath=${sshControlPath()}`,
+        '-C'
+    ];
+}
+
 function sshArgs(profile: SshIisProfile, powerShellCommand: string): string[] {
     return [
         '-i', profile.privateKeyPath,
         '-p', String(profile.port),
-        '-o', 'BatchMode=yes',
-        '-o', 'StrictHostKeyChecking=accept-new',
+        ...sshConnectionOptions(),
         `${profile.username}@${profile.host}`,
         'powershell', '-NoProfile', '-NonInteractive', '-Command', powerShellCommand
     ];
 }
 
-function scpArgs(profile: SshIisProfile, localPath: string, remoteDest: string, recursive: boolean): string[] {
+// localPaths are copied as siblings into remoteDest in a single scp invocation (one
+// connection for the whole batch, instead of one process/handshake per file or folder).
+function scpArgs(profile: SshIisProfile, localPaths: string[], remoteDest: string): string[] {
     const args = [
         '-P', String(profile.port),
         '-i', profile.privateKeyPath,
-        '-o', 'BatchMode=yes',
-        '-o', 'StrictHostKeyChecking=accept-new'
+        ...sshConnectionOptions(),
+        '-r'
     ];
-    if (recursive) {
-        args.push('-r');
-    }
-    args.push(localPath, `${profile.username}@${profile.host}:${remoteDest}`);
+    args.push(...localPaths, `${profile.username}@${profile.host}:${remoteDest}`);
     return args;
+}
+
+// Tells a running ControlMaster to exit right away instead of waiting out ControlPersist
+async function closeSshControlConnection(profile: SshIisProfile, outputChannel: vscode.OutputChannel): Promise<void> {
+    try {
+        await runCommand('ssh', [
+            '-o', `ControlPath=${sshControlPath()}`,
+            '-O', 'exit',
+            `${profile.username}@${profile.host}`
+        ], outputChannel);
+    } catch {
+        // Best effort — ControlPersist=60s will clean the socket up on its own regardless
+    }
 }
 
 // Opens the bundled SSH setup guide (server setup, key setup, permissions) in a Markdown preview
@@ -952,16 +987,13 @@ async function publishToIISviaSsh(
                     progress.report({ message: 'Taking app offline...' });
                     const offlineFilePath = path.join(tempDir, 'app_offline.htm');
                     fs.writeFileSync(offlineFilePath, '<html><body>Deploying update, back shortly...</body></html>', 'utf-8');
-                    await runCommand('scp', scpArgs(profile, offlineFilePath, remoteOfflineFile, false), outputChannel);
+                    await runCommand('scp', scpArgs(profile, [offlineFilePath], remoteOfflineFile), outputChannel);
                     fs.rmSync(offlineFilePath, { force: true });
                     await new Promise((resolve) => setTimeout(resolve, 2000));
 
                     progress.report({ message: 'Copying published files...' });
-                    for (const entry of fs.readdirSync(tempDir)) {
-                        const localEntryPath = path.join(tempDir, entry);
-                        const isDir = fs.statSync(localEntryPath).isDirectory();
-                        await runCommand('scp', scpArgs(profile, localEntryPath, profile.remotePath, isDir), outputChannel);
-                    }
+                    const entries = fs.readdirSync(tempDir).map((entry) => path.join(tempDir, entry));
+                    await runCommand('scp', scpArgs(profile, entries, profile.remotePath), outputChannel);
 
                     progress.report({ message: 'Bringing app back online...' });
                     await runCommand('ssh', sshArgs(profile, `Remove-Item -LiteralPath ${quotePowerShellSingle(remoteOfflineFile)} -Force -ErrorAction SilentlyContinue`), outputChannel);
@@ -990,6 +1022,7 @@ async function publishToIISviaSsh(
         outputChannel.appendLine(`ERROR: ${error}`);
         vscode.window.showErrorMessage(`Publish failed: ${error instanceof Error ? error.message : error}`);
     } finally {
+        await closeSshControlConnection(profile, outputChannel);
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 }

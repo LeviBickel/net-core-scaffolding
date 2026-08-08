@@ -188,7 +188,14 @@ Absolutely! This extension is fully compatible with `.pubxml` files created in V
 
 ## 📝 Release Notes
 
-### 0.0.21 (Latest)
+### 0.0.22 (Latest)
+- **⚡ PERFORMANCE**: Faster SSH + PowerShell publishing
+  - Reuses a single multiplexed SSH connection (`ControlMaster`/`ControlPersist`) across every step of a deploy instead of opening a new connection per command
+  - Copies the whole publish output in one `scp` invocation instead of one per top-level file/folder
+  - Enables `scp`/`ssh` compression
+  - Still does a full copy every deploy — incremental/delta sync remains a known limitation
+
+### 0.0.21
 - **🆕 MAJOR FEATURE**: SSH + PowerShell IIS Publishing
   - Deploy from macOS or Linux straight to a Windows IIS server — no Web Deploy/msdeploy client needed, just OpenSSH + PowerShell
   - New profile type alongside existing `.pubxml` MSDeploy profiles, picked from the same "Publish to IIS..." command
