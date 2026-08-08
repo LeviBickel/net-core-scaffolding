@@ -2,6 +2,21 @@
 
 All notable changes to the "net-core-scaffolding" extension will be documented in this file.
 
+## [0.0.21] - 2026-08-08
+
+### Added
+- **SSH + PowerShell IIS publishing** - New deployment method for publishing from macOS/Linux to a Windows IIS server without requiring the Windows-only Web Deploy (msdeploy) client
+  - New profile type (`*.iisssh.json` in `Properties/PublishProfiles/`) alongside existing `.pubxml` profiles, selectable from the same "Publish to IIS..." command
+  - Key-based SSH authentication only (no password auth over SSH)
+  - Deploys by building locally with `dotnet publish`, taking the app offline via `app_offline.htm` (ASP.NET Core Module unloads just that app), copying files with `scp`, bringing the app back online, and recycling the target application pool via PowerShell's `WebAdministration` module
+  - Local publish output is cleaned up automatically after each deploy
+  - Deploy progress and command output stream to a new "IIS SSH Publish" output channel
+- **In-product SSH setup guide access** - New "IIS Publish: Open SSH Setup Guide" command opens the bundled setup guide in a Markdown preview from the Command Palette anytime; it also offers to open automatically (via a "View Setup Guide" button) the first time you create a new SSH profile
+- See [IIS-PUBLISH-GUIDE.md](IIS-PUBLISH-GUIDE.md) for full Windows-side OpenSSH Server setup, covering the `ssh-agent`/`sshd` distinction, admin-account `administrators_authorized_keys` requirements, and the ASP.NET Core Hosting Bundle prerequisite
+
+### Changed
+- Renamed the "Publish to IIS (Web Deploy)" command to **"Publish to IIS..."** since it now covers two deployment methods, not just Web Deploy
+
 ## [0.0.20] - 2026-07-07
 
 ### Security

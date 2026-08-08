@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as cp from 'child_process';
 
 // Function to safely quote paths for terminal commands
@@ -407,6 +408,7 @@ async function publishToFolder(uri: vscode.Uri, context: vscode.ExtensionContext
 interface PublishProfile {
     name: string;
     filePath: string;
+    kind: 'msdeploy' | 'sshiis';
 }
 
 interface WebDeployConfig {
@@ -418,7 +420,19 @@ interface WebDeployConfig {
     allowUntrustedCert: boolean;
 }
 
-// Function to find existing publish profiles
+// SSH + PowerShell based IIS deployment (works from macOS/Linux, no msdeploy client needed)
+interface SshIisProfile {
+    profileName: string;
+    host: string;
+    port: number;
+    username: string;
+    privateKeyPath: string;
+    remotePath: string;      // Windows path, e.g. C:\inetpub\wwwroot\MyApp
+    appPoolName: string;
+    siteName?: string;
+}
+
+// Function to find existing publish profiles (both MSDeploy .pubxml and SSH .iisssh.json)
 function findPublishProfiles(projectDir: string): PublishProfile[] {
     const profilesPath = path.join(projectDir, 'Properties', 'PublishProfiles');
     const profiles: PublishProfile[] = [];
@@ -432,7 +446,14 @@ function findPublishProfiles(projectDir: string): PublishProfile[] {
         if (file.endsWith('.pubxml')) {
             profiles.push({
                 name: path.basename(file, '.pubxml'),
-                filePath: path.join(profilesPath, file)
+                filePath: path.join(profilesPath, file),
+                kind: 'msdeploy'
+            });
+        } else if (file.endsWith('.iisssh.json')) {
+            profiles.push({
+                name: path.basename(file, '.iisssh.json'),
+                filePath: path.join(profilesPath, file),
+                kind: 'sshiis'
             });
         }
     }
@@ -689,6 +710,290 @@ async function createNewPublishProfile(context: vscode.ExtensionContext, project
     }
 }
 
+// ==================== SSH + PowerShell IIS Publishing ====================
+// Alternative to MSDeploy for deploying from macOS/Linux to a Windows IIS
+// server using the OpenSSH client and PowerShell (no msdeploy client required).
+
+// Function to load an SSH IIS profile from disk
+function loadSshIisProfile(filePath: string): SshIisProfile | null {
+    try {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        return JSON.parse(content) as SshIisProfile;
+    } catch (error) {
+        console.error('Error parsing SSH IIS profile:', error);
+        return null;
+    }
+}
+
+// Function to save an SSH IIS profile to disk
+async function saveSshIisProfile(projectDir: string, profile: SshIisProfile): Promise<string> {
+    const profilesPath = path.join(projectDir, 'Properties', 'PublishProfiles');
+
+    if (!fs.existsSync(path.join(projectDir, 'Properties'))) {
+        fs.mkdirSync(path.join(projectDir, 'Properties'));
+    }
+    if (!fs.existsSync(profilesPath)) {
+        fs.mkdirSync(profilesPath);
+    }
+
+    const profilePath = path.join(profilesPath, `${profile.profileName}.iisssh.json`);
+    fs.writeFileSync(profilePath, JSON.stringify(profile, null, 2), 'utf-8');
+    return profilePath;
+}
+
+// Function to create a new SSH IIS profile
+async function createNewSshIisProfile(context: vscode.ExtensionContext, projectDir: string): Promise<SshIisProfile | null> {
+    const profileName = await vscode.window.showInputBox({
+        prompt: 'Enter publish profile name',
+        placeHolder: 'e.g., Production, Staging, Development'
+    });
+    if (!profileName) {
+        return null;
+    }
+
+    const host = await vscode.window.showInputBox({
+        prompt: 'Enter Windows server hostname or IP address',
+        placeHolder: 'e.g., webserver-2 or 192.168.21.83',
+        validateInput: (value) => (!value || value.trim() === '') ? 'Host is required' : null
+    });
+    if (!host) {
+        return null;
+    }
+
+    const portInput = await vscode.window.showInputBox({
+        prompt: 'Enter SSH port',
+        placeHolder: '22',
+        value: '22',
+        validateInput: (value) => {
+            if (!value || value.trim() === '') {
+                return 'Port is required';
+            }
+            if (!/^\d+$/.test(value)) {
+                return 'Port must be a number';
+            }
+            return null;
+        }
+    });
+    if (!portInput) {
+        return null;
+    }
+
+    const username = await vscode.window.showInputBox({
+        prompt: 'Enter SSH username',
+        placeHolder: 'e.g., deploy-user or DOMAIN\\deploy-user'
+    });
+    if (!username) {
+        return null;
+    }
+
+    const defaultKeyDir = path.join(os.homedir(), '.ssh');
+    const keyUri = await vscode.window.showOpenDialog({
+        canSelectFiles: true,
+        canSelectFolders: false,
+        canSelectMany: false,
+        openLabel: 'Select Private Key',
+        defaultUri: fs.existsSync(defaultKeyDir) ? vscode.Uri.file(defaultKeyDir) : undefined
+    });
+    if (!keyUri || keyUri.length === 0) {
+        return null;
+    }
+    const privateKeyPath = keyUri[0].fsPath;
+
+    const remotePath = await vscode.window.showInputBox({
+        prompt: 'Enter remote deployment path on the Windows server',
+        placeHolder: 'e.g., C:\\inetpub\\wwwroot\\MyApp',
+        validateInput: (value) => (!value || value.trim() === '') ? 'Remote path is required' : null
+    });
+    if (!remotePath) {
+        return null;
+    }
+
+    const appPoolName = await vscode.window.showInputBox({
+        prompt: 'Enter IIS application pool name (recycled after each deploy)',
+        placeHolder: 'e.g., MyApp',
+        validateInput: (value) => (!value || value.trim() === '') ? 'App pool name is required' : null
+    });
+    if (!appPoolName) {
+        return null;
+    }
+
+    const siteName = await vscode.window.showInputBox({
+        prompt: 'Enter IIS site name (optional, for reference only)',
+        placeHolder: 'e.g., Default Web Site/MyApp'
+    });
+
+    const profile: SshIisProfile = {
+        profileName,
+        host: host.trim(),
+        port: parseInt(portInput, 10),
+        username: username.trim(),
+        privateKeyPath,
+        remotePath: remotePath.trim(),
+        appPoolName: appPoolName.trim(),
+        siteName: siteName && siteName.trim() ? siteName.trim() : undefined
+    };
+
+    try {
+        await saveSshIisProfile(projectDir, profile);
+        vscode.window.showInformationMessage(`SSH publish profile "${profileName}" created successfully`);
+        return profile;
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to create SSH publish profile: ${error}`);
+        return null;
+    }
+}
+
+// Escapes a value for safe interpolation inside a single-quoted PowerShell string
+function quotePowerShellSingle(value: string): string {
+    return `'${value.replace(/'/g, "''")}'`;
+}
+
+// Joins a remote Windows path with a file name using backslashes
+function remoteWindowsJoin(remoteDir: string, fileName: string): string {
+    return `${remoteDir.replace(/[\\/]+$/, '')}\\${fileName}`;
+}
+
+function sshArgs(profile: SshIisProfile, powerShellCommand: string): string[] {
+    return [
+        '-i', profile.privateKeyPath,
+        '-p', String(profile.port),
+        '-o', 'BatchMode=yes',
+        '-o', 'StrictHostKeyChecking=accept-new',
+        `${profile.username}@${profile.host}`,
+        'powershell', '-NoProfile', '-NonInteractive', '-Command', powerShellCommand
+    ];
+}
+
+function scpArgs(profile: SshIisProfile, localPath: string, remoteDest: string, recursive: boolean): string[] {
+    const args = [
+        '-P', String(profile.port),
+        '-i', profile.privateKeyPath,
+        '-o', 'BatchMode=yes',
+        '-o', 'StrictHostKeyChecking=accept-new'
+    ];
+    if (recursive) {
+        args.push('-r');
+    }
+    args.push(localPath, `${profile.username}@${profile.host}:${remoteDest}`);
+    return args;
+}
+
+// Opens the bundled SSH setup guide (server setup, key setup, permissions) in a Markdown preview
+async function openIISSSHSetupGuide(context: vscode.ExtensionContext): Promise<void> {
+    const guideUri = vscode.Uri.joinPath(context.extensionUri, 'IIS-PUBLISH-GUIDE.md');
+    try {
+        await vscode.commands.executeCommand('markdown.showPreviewToSide', guideUri);
+    } catch (error) {
+        // Fall back to a plain editor tab if the Markdown preview command isn't available
+        const doc = await vscode.workspace.openTextDocument(guideUri);
+        await vscode.window.showTextDocument(doc);
+    }
+}
+
+let sshPublishOutputChannel: vscode.OutputChannel | undefined;
+function getSshPublishOutputChannel(): vscode.OutputChannel {
+    if (!sshPublishOutputChannel) {
+        sshPublishOutputChannel = vscode.window.createOutputChannel('IIS SSH Publish');
+    }
+    return sshPublishOutputChannel;
+}
+
+// Runs a command via spawn (not exec) so output can stream and success/failure is detected reliably
+function runCommand(command: string, args: string[], outputChannel: vscode.OutputChannel): Promise<void> {
+    return new Promise((resolve, reject) => {
+        outputChannel.appendLine(`$ ${command} ${args.join(' ')}`);
+        const proc = cp.spawn(command, args);
+
+        proc.stdout.on('data', (data) => outputChannel.append(data.toString()));
+        proc.stderr.on('data', (data) => outputChannel.append(data.toString()));
+
+        proc.on('error', (error) => reject(error));
+        proc.on('close', (code) => {
+            if (code === 0) {
+                resolve();
+            } else {
+                reject(new Error(`Command failed with exit code ${code}: ${command} ${args.slice(0, 2).join(' ')} ...`));
+            }
+        });
+    });
+}
+
+// Main function to handle SSH + PowerShell based IIS publishing
+async function publishToIISviaSsh(
+    uri: vscode.Uri,
+    profile: SshIisProfile,
+    configuration: string,
+    framework: string | undefined
+): Promise<void> {
+    const projectName = path.basename(uri.fsPath, '.csproj');
+    const outputChannel = getSshPublishOutputChannel();
+    outputChannel.clear();
+    outputChannel.show(true);
+
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `iis-publish-${projectName}-`));
+    const remoteOfflineFile = remoteWindowsJoin(profile.remotePath, 'app_offline.htm');
+
+    try {
+        await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: `Publishing ${projectName} to ${profile.host}`,
+                cancellable: false
+            },
+            async (progress) => {
+                progress.report({ message: 'Building...' });
+                const publishArgs = ['publish', uri.fsPath, '-c', configuration, '-o', tempDir];
+                if (framework && framework.trim()) {
+                    publishArgs.push('-f', framework.trim());
+                }
+                await runCommand('dotnet', publishArgs, outputChannel);
+
+                try {
+                    progress.report({ message: 'Taking app offline...' });
+                    const offlineFilePath = path.join(tempDir, 'app_offline.htm');
+                    fs.writeFileSync(offlineFilePath, '<html><body>Deploying update, back shortly...</body></html>', 'utf-8');
+                    await runCommand('scp', scpArgs(profile, offlineFilePath, remoteOfflineFile, false), outputChannel);
+                    fs.rmSync(offlineFilePath, { force: true });
+                    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+                    progress.report({ message: 'Copying published files...' });
+                    for (const entry of fs.readdirSync(tempDir)) {
+                        const localEntryPath = path.join(tempDir, entry);
+                        const isDir = fs.statSync(localEntryPath).isDirectory();
+                        await runCommand('scp', scpArgs(profile, localEntryPath, profile.remotePath, isDir), outputChannel);
+                    }
+
+                    progress.report({ message: 'Bringing app back online...' });
+                    await runCommand('ssh', sshArgs(profile, `Remove-Item -LiteralPath ${quotePowerShellSingle(remoteOfflineFile)} -Force -ErrorAction SilentlyContinue`), outputChannel);
+
+                    progress.report({ message: 'Recycling app pool...' });
+                    try {
+                        await runCommand('ssh', sshArgs(profile, `Import-Module WebAdministration; Restart-WebAppPool -Name ${quotePowerShellSingle(profile.appPoolName)}`), outputChannel);
+                    } catch (poolError) {
+                        outputChannel.appendLine(`Warning: could not recycle app pool automatically: ${poolError}`);
+                        vscode.window.showWarningMessage(`Deployed, but could not recycle app pool "${profile.appPoolName}" automatically. It may need to be recycled manually.`);
+                    }
+                } catch (deployError) {
+                    // Best effort: bring the app back online even if a later step failed
+                    try {
+                        await runCommand('ssh', sshArgs(profile, `Remove-Item -LiteralPath ${quotePowerShellSingle(remoteOfflineFile)} -Force -ErrorAction SilentlyContinue`), outputChannel);
+                    } catch {
+                        // Ignore secondary failure; the original error is what matters
+                    }
+                    throw deployError;
+                }
+            }
+        );
+
+        vscode.window.showInformationMessage(`Successfully published ${projectName} to ${profile.host}.`);
+    } catch (error) {
+        outputChannel.appendLine(`ERROR: ${error}`);
+        vscode.window.showErrorMessage(`Publish failed: ${error instanceof Error ? error.message : error}`);
+    } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+}
+
 // Main function to handle IIS publishing
 async function publishToIIS(uri: vscode.Uri, context: vscode.ExtensionContext) {
     if (!uri || !uri.fsPath.endsWith('.csproj')) {
@@ -699,13 +1004,14 @@ async function publishToIIS(uri: vscode.Uri, context: vscode.ExtensionContext) {
     const projectDir = path.dirname(uri.fsPath);
     const projectName = path.basename(uri.fsPath, '.csproj');
 
-    // Find existing profiles
+    // Find existing profiles (both MSDeploy and SSH)
     const existingProfiles = findPublishProfiles(projectDir);
+    const profileIcon = (kind: PublishProfile['kind']) => kind === 'sshiis' ? '🔐' : '📄';
 
     // Build options for quick pick
     const options: string[] = [];
     if (existingProfiles.length > 0) {
-        options.push(...existingProfiles.map(p => `📄 ${p.name}`));
+        options.push(...existingProfiles.map(p => `${profileIcon(p.kind)} ${p.name}`));
         options.push('---');
     }
     options.push('➕ Create New Profile');
@@ -719,57 +1025,99 @@ async function publishToIIS(uri: vscode.Uri, context: vscode.ExtensionContext) {
         return;
     }
 
-    let config: WebDeployConfig | null = null;
+    let msDeployConfig: WebDeployConfig | null = null;
+    let sshProfile: SshIisProfile | null = null;
     let profileName: string;
+    let profileKind: PublishProfile['kind'];
 
     if (selected === '➕ Create New Profile') {
-        // Create new profile
-        config = await createNewPublishProfile(context, projectDir);
-        if (!config) {
+        const method = await vscode.window.showQuickPick(
+            [
+                { label: 'MSDeploy (Windows only)', value: 'msdeploy' as const },
+                { label: 'SSH + PowerShell (cross-platform)', value: 'sshiis' as const }
+            ],
+            { placeHolder: 'Select deployment method' }
+        );
+
+        if (!method) {
             return;
         }
-        profileName = config.profileName;
+
+        if (method.value === 'msdeploy') {
+            msDeployConfig = await createNewPublishProfile(context, projectDir);
+            if (!msDeployConfig) {
+                return;
+            }
+            profileName = msDeployConfig.profileName;
+            profileKind = 'msdeploy';
+        } else {
+            const guideChoice = await vscode.window.showInformationMessage(
+                'SSH + PowerShell publishing needs one-time server setup: enabling OpenSSH Server on the Windows box, installing an SSH key, and granting app pool permissions.',
+                'View Setup Guide', 'Continue'
+            );
+            if (guideChoice === 'View Setup Guide') {
+                await openIISSSHSetupGuide(context);
+            }
+
+            sshProfile = await createNewSshIisProfile(context, projectDir);
+            if (!sshProfile) {
+                return;
+            }
+            profileName = sshProfile.profileName;
+            profileKind = 'sshiis';
+        }
     } else {
         // Use existing profile
-        profileName = selected.replace('📄 ', '');
-        const profile = existingProfiles.find(p => p.name === profileName);
+        const strippedName = selected.replace(/^(📄|🔐)\s/, '');
+        const profile = existingProfiles.find(p => p.name === strippedName);
 
         if (!profile) {
             vscode.window.showErrorMessage('Selected profile not found');
             return;
         }
 
-        // Parse profile for server info
-        const profileData = parsePublishProfile(profile.filePath);
+        profileName = profile.name;
+        profileKind = profile.kind;
 
-        // Try to get stored credentials
-        let credentials = await getCredentials(context, profileName);
-
-        // If no stored credentials, prompt for them
-        if (!credentials) {
-            credentials = await promptForCredentials(profileData.username);
-            if (!credentials) {
+        if (profile.kind === 'sshiis') {
+            sshProfile = loadSshIisProfile(profile.filePath);
+            if (!sshProfile) {
+                vscode.window.showErrorMessage('Failed to load SSH publish profile');
                 return;
             }
+        } else {
+            // Parse profile for server info
+            const profileData = parsePublishProfile(profile.filePath);
 
-            // Ask if they want to save credentials
-            const saveCredsChoice = await vscode.window.showQuickPick(['Yes', 'No'], {
-                placeHolder: 'Save credentials for future use?'
-            });
+            // Try to get stored credentials
+            let credentials = await getCredentials(context, profileName);
 
-            if (saveCredsChoice === 'Yes') {
-                await storeCredentials(context, profileName, credentials.username, credentials.password);
+            // If no stored credentials, prompt for them
+            if (!credentials) {
+                credentials = await promptForCredentials(profileData.username);
+                if (!credentials) {
+                    return;
+                }
+
+                // Ask if they want to save credentials
+                const saveCredsChoice = await vscode.window.showQuickPick(['Yes', 'No'], {
+                    placeHolder: 'Save credentials for future use?'
+                });
+
+                if (saveCredsChoice === 'Yes') {
+                    await storeCredentials(context, profileName, credentials.username, credentials.password);
+                }
             }
-        }
 
-        config = {
-            profileName,
-            serverUrl: profileData.serverUrl || '',
-            siteName: profileData.siteName || '',
-            username: credentials.username,
-            password: credentials.password,
-            allowUntrustedCert: true
-        };
+            msDeployConfig = {
+                profileName,
+                serverUrl: profileData.serverUrl || '',
+                siteName: profileData.siteName || '',
+                username: credentials.username,
+                password: credentials.password,
+                allowUntrustedCert: true
+            };
+        }
     }
 
     // Select build configuration
@@ -791,6 +1139,18 @@ async function publishToIIS(uri: vscode.Uri, context: vscode.ExtensionContext) {
         value: defaultFramework
     });
 
+    if (profileKind === 'sshiis') {
+        if (!sshProfile) {
+            return;
+        }
+        await publishToIISviaSsh(uri, sshProfile, configuration, framework);
+        return;
+    }
+
+    if (!msDeployConfig) {
+        return;
+    }
+
     // Build the publish command
     let publishCommand = `dotnet publish ${quotePath(uri.fsPath)} -c ${configuration} /p:PublishProfile=${profileName}`;
 
@@ -799,10 +1159,10 @@ async function publishToIIS(uri: vscode.Uri, context: vscode.ExtensionContext) {
     }
 
     // Add credentials as MSBuild parameters
-    publishCommand += ` /p:UserName=${config.username}`;
-    publishCommand += ` /p:Password=${config.password}`;
+    publishCommand += ` /p:UserName=${msDeployConfig.username}`;
+    publishCommand += ` /p:Password=${msDeployConfig.password}`;
 
-    if (config.allowUntrustedCert) {
+    if (msDeployConfig.allowUntrustedCert) {
         publishCommand += ` /p:AllowUntrustedCertificate=true`;
     }
 
@@ -811,7 +1171,7 @@ async function publishToIIS(uri: vscode.Uri, context: vscode.ExtensionContext) {
     terminal.sendText(`cd ${quotePath(projectDir)}`);
 
     // Show info message (don't echo command to avoid password exposure)
-    vscode.window.showInformationMessage(`Publishing ${projectName} to ${config.siteName}...`);
+    vscode.window.showInformationMessage(`Publishing ${projectName} to ${msDeployConfig.siteName}...`);
     vscode.window.showWarningMessage('⚠️ Password will be visible in terminal output. For production, use Windows Authentication or CI/CD with secrets.');
 
     // Execute publish command
@@ -831,9 +1191,15 @@ export function activate(context: vscode.ExtensionContext) {
         await publishToIIS(uri, context);
     });
 
+    // Register a standalone command so the SSH setup guide is reachable anytime via the Command Palette
+    const openIISSSHGuideCommand = vscode.commands.registerCommand('extension.openIISSSHGuide', async () => {
+        await openIISSSHSetupGuide(context);
+    });
+
     context.subscriptions.push(scaffoldCommand);
     context.subscriptions.push(publishToFolderCommand);
     context.subscriptions.push(publishToIISCommand);
+    context.subscriptions.push(openIISSSHGuideCommand);
 }
 
 // Deactivate function

@@ -20,14 +20,15 @@ Bring Visual Studio's powerful .NET Core MVC scaffolding and publishing capabili
 - **Folder selection**: Built-in folder picker for publish destinations
 - **Cross-platform support**: Works seamlessly on Windows, macOS, and Linux
 
-### 🌐 Publish to IIS (Web Deploy)
-- **Direct IIS deployment**: One-click publishing to IIS servers using Web Deploy (MSDeploy)
-- **Profile management**: Use existing `.pubxml` profiles or create new ones through VS Code
-- **Secure credentials**: Passwords stored in VS Code's secure storage (never in files)
-- **Visual Studio compatible**: Works with publish profiles created in Visual Studio
-- **Incremental deployment**: Only changed files are deployed for faster updates
+### 🌐 Publish to IIS
+- **Two deployment methods**: Web Deploy (MSDeploy) or SSH + PowerShell — pick when creating a profile
+- **Deploy from macOS/Linux**: The SSH + PowerShell method deploys from any OS to a Windows IIS server; Web Deploy requires running on Windows
+- **Profile management**: Use existing `.pubxml`/SSH profiles or create new ones through VS Code
+- **Secure credentials**: MSDeploy passwords stored in VS Code's secure storage (never in files); SSH uses key-based auth, no password stored at all
+- **Visual Studio compatible**: Works with `.pubxml` publish profiles created in Visual Studio
+- **Incremental deployment**: Web Deploy only sends changed files for faster updates
 - **Production ready**: Supports authentication, SSL certificates, and multiple environments
-- **📖 Full guide**: See [IIS-PUBLISH-GUIDE.md](IIS-PUBLISH-GUIDE.md) for detailed setup and usage
+- **📖 Full guide**: See [IIS-PUBLISH-GUIDE.md](IIS-PUBLISH-GUIDE.md) for detailed setup and usage — also available anytime from the Command Palette via **"IIS Publish: Open SSH Setup Guide"**, no need to leave VS Code
 
 ### 🛡️ Robust Path Handling
 - **Special character support**: Handles paths with `!`, `@`, `#`, and other special characters
@@ -71,33 +72,38 @@ The extension will generate a complete MVC controller with CRUD operations and o
 
 The extension will execute `dotnet publish` with your selected options.
 
-### Publishing to IIS (Web Deploy)
+### Publishing to IIS
 
 #### Using Existing Profile
 1. **Right-click** on any `.csproj` file in your project
-2. Select **"Publish to IIS (Web Deploy)"** from the context menu
-3. Choose an existing profile from the list (📄 icon)
-4. Enter credentials if not already stored
+2. Select **"Publish to IIS..."** from the context menu
+3. Choose an existing profile from the list (📄 MSDeploy, 🔐 SSH)
+4. Enter credentials if not already stored (MSDeploy only — SSH profiles use your private key)
 5. Select build configuration (Debug/Release)
 6. Confirm or adjust target framework
 
 #### Creating New Profile
 1. **Right-click** on any `.csproj` file in your project
-2. Select **"Publish to IIS (Web Deploy)"** from the context menu
+2. Select **"Publish to IIS..."** from the context menu
 3. Choose **"➕ Create New Profile"**
-4. Follow the interactive wizard:
-   - **Profile name**: e.g., `Production`, `Staging`
-   - **Server URL**: e.g., `https://yourserver:8172/msdeploy.axd`
-   - **IIS Site name**: e.g., `Default Web Site/MyApp`
-   - **Username & Password**: Deployment credentials
-   - **SSL Certificate**: Allow untrusted (for self-signed certs)
+4. Pick a deployment method:
+   - **MSDeploy (Windows only)** — the classic Visual Studio-style flow:
+     - **Profile name**: e.g., `Production`, `Staging`
+     - **Server URL**: e.g., `https://yourserver:8172/msdeploy.axd`
+     - **IIS Site name**: e.g., `Default Web Site/MyApp`
+     - **Username & Password**: Deployment credentials
+     - **SSL Certificate**: Allow untrusted (for self-signed certs)
+   - **SSH + PowerShell (cross-platform)** — works from macOS/Linux to a Windows IIS server:
+     - **Profile name**, **host/IP**, **SSH port**, **username**
+     - **Private key file**: picked via file dialog (key-based auth only, no password)
+     - **Remote deployment path**: e.g., `C:\inetpub\wwwroot\MyApp`
+     - **App pool name**: recycled automatically after each deploy
 
 **📖 For detailed setup, troubleshooting, and server configuration, see [IIS-PUBLISH-GUIDE.md](IIS-PUBLISH-GUIDE.md)**
 
 **Server Requirements:**
-- IIS with Web Deploy 3.6+ installed
-- Web Management Service (WMSvc) running
-- Download Web Deploy: https://www.iis.net/downloads/microsoft/web-deploy
+- **MSDeploy**: IIS with Web Deploy 3.6+ and Web Management Service (WMSvc) running — [download Web Deploy](https://www.iis.net/downloads/microsoft/web-deploy)
+- **SSH + PowerShell**: IIS with OpenSSH Server enabled — no Web Deploy/WMSvc required
 
 ## 📋 Requirements
 
@@ -116,7 +122,7 @@ The extension will execute `dotnet publish` with your selected options.
 - ✅ Custom and existing DbContexts
 - ✅ Cross-platform development (Windows, macOS, Linux)
 - ✅ Workspaces with special characters in paths
-- ✅ IIS deployment with Web Deploy (Windows Server)
+- ✅ IIS deployment with Web Deploy (Windows Server) or SSH + PowerShell (from macOS/Linux/Windows)
 - ✅ Multiple deployment environments (Dev, Staging, Production)
 
 ## 🔒 Security
@@ -132,7 +138,7 @@ Right-click any C# model file to instantly scaffold a complete MVC controller wi
 Right-click any .csproj file to publish your application to a local or network folder.
 
 ### Publish to IIS
-One-click deployment to IIS servers using Web Deploy with secure credential storage and profile management.
+One-click deployment to IIS servers via Web Deploy or SSH + PowerShell, with secure credential storage and profile management.
 
 ## ❓ FAQ
 
@@ -152,7 +158,7 @@ Absolutely! The extension is fully cross-platform and works on Windows, macOS, a
 The extension supports .NET Core 6.0 and higher, including .NET 8.0 and .NET 9.0.
 
 ### How do I publish to IIS?
-Right-click your `.csproj` file and select "Publish to IIS (Web Deploy)". You can use existing publish profiles or create new ones through the interactive wizard. See [IIS-PUBLISH-GUIDE.md](IIS-PUBLISH-GUIDE.md) for server setup requirements.
+Right-click your `.csproj` file and select "Publish to IIS...". You can use existing publish profiles or create new ones through the interactive wizard, choosing either Web Deploy (Windows only) or SSH + PowerShell (works from macOS/Linux too). See [IIS-PUBLISH-GUIDE.md](IIS-PUBLISH-GUIDE.md) for server setup requirements.
 
 ### Are my deployment credentials safe?
 Yes! Deployment passwords are stored in VS Code's secure credential storage (same as Git credentials). They are never saved in files or committed to source control. You can choose whether to save credentials or be prompted each time.
@@ -182,7 +188,16 @@ Absolutely! This extension is fully compatible with `.pubxml` files created in V
 
 ## 📝 Release Notes
 
-### 0.0.20 (Latest)
+### 0.0.21 (Latest)
+- **🆕 MAJOR FEATURE**: SSH + PowerShell IIS Publishing
+  - Deploy from macOS or Linux straight to a Windows IIS server — no Web Deploy/msdeploy client needed, just OpenSSH + PowerShell
+  - New profile type alongside existing `.pubxml` MSDeploy profiles, picked from the same "Publish to IIS..." command
+  - Key-based SSH authentication only (no passwords sent or stored)
+  - Takes the app offline via `app_offline.htm`, copies files with `scp`, brings it back online, and recycles the app pool automatically
+- **📖 DOCUMENTATION**: In-product access to the SSH setup guide via the new "IIS Publish: Open SSH Setup Guide" Command Palette entry, plus a prompt when creating your first SSH profile
+- **✏️ RENAMED**: "Publish to IIS (Web Deploy)" command is now **"Publish to IIS..."**, since it covers two deployment methods
+
+### 0.0.20
 - **🔒 SECURITY**: Fixed 9 additional dependency vulnerabilities (2 high/critical, 7 high/moderate)
   - Updated `form-data` to 4.0.6+ (CVE-2026-12143 - High)
   - Updated `linkify-it` to 5.0.1+ (CVE-2026-48801 - High)

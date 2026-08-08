@@ -2,7 +2,7 @@
   "name": "net-core-mvc-scaffolding",
   "displayName": ".NET Core MVC Scaffolding & Publishing",
   "description": "Complete Visual Studio-like scaffolding and publishing tools for .NET Core MVC projects. Generate controllers, publish to folders or IIS with Web Deploy.",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "publisher": "LeviBickel",
   "repository": {
     "type": "git",
@@ -34,7 +34,11 @@
       },
       {
         "command": "extension.publishToIIS",
-        "title": "Publish to IIS (Web Deploy)"
+        "title": "Publish to IIS..."
+      },
+      {
+        "command": "extension.openIISSSHGuide",
+        "title": "IIS Publish: Open SSH Setup Guide"
       }
     ],
     "menus": {
