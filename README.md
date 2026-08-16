@@ -188,7 +188,11 @@ Absolutely! This extension is fully compatible with `.pubxml` files created in V
 
 ## 📝 Release Notes
 
-### 0.0.24 (Latest)
+### 0.0.25 (Latest)
+- **✨ IMPROVEMENT**: Build configuration dropdown is now dynamic — "Publish to Folder" and "Publish to IIS..." read the configurations actually declared in the project's `.csproj` (`<Configurations>Debug;Release;Staging</Configurations>`, etc.) instead of a hardcoded `Debug`/`Release` list
+  - Falls back to `Debug`/`Release` when a project doesn't declare `<Configurations>` — no change for projects that don't customize it
+
+### 0.0.24
 - **🐛 FIX**: SSH publish could fail to copy some files (`scp: dest open ...: Failure`) on apps using in-process IIS hosting, since `app_offline.htm` alone doesn't reliably release file locks held by the running `w3wp.exe` worker process
   - The deploy now explicitly stops the target application pool and polls until IIS actually reports it stopped (up to 30s) before copying, instead of a fixed 2-second wait, then explicitly starts it back up afterward
 

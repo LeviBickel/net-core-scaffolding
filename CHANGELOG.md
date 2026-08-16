@@ -2,6 +2,12 @@
 
 All notable changes to the "net-core-scaffolding" extension will be documented in this file.
 
+## [0.0.25] - 2026-08-08
+
+### Changed
+- **Dynamic build configuration dropdown** - "Publish to Folder" and "Publish to IIS..." now read the available build configurations from the project's `.csproj` (`<Configurations>Debug;Release;Staging</Configurations>`, etc.) instead of a hardcoded `Debug`/`Release` list, so any custom configuration a project declares is selectable
+  - Falls back to `Debug`/`Release` when a project doesn't declare `<Configurations>`, matching the .NET SDK's own default and preserving existing behavior for every project that doesn't customize it
+
 ## [0.0.24] - 2026-08-08
 
 ### Fixed

@@ -327,6 +327,25 @@ function getTargetFramework(csprojPath: string): string | null {
     return null;
 }
 
+// Function to extract declared build configurations from a .csproj file
+function getProjectConfigurations(csprojPath: string): string[] {
+    try {
+        const content = fs.readFileSync(csprojPath, 'utf-8');
+        const match = content.match(/<Configurations>([^<]+)<\/Configurations>/i);
+        if (match) {
+            const configs = match[1].split(';').map(c => c.trim()).filter(c => c.length > 0);
+            if (configs.length > 0) {
+                return configs;
+            }
+        }
+    } catch (error) {
+        console.error(`Error reading .csproj file: ${error}`);
+    }
+
+    // No <Configurations> declared — matches the .NET SDK's own default
+    return ['Debug', 'Release'];
+}
+
 // Function to handle publish to folder command
 async function publishToFolder(uri: vscode.Uri, context: vscode.ExtensionContext) {
     if (!uri || !uri.fsPath.endsWith('.csproj')) {
@@ -367,8 +386,8 @@ async function publishToFolder(uri: vscode.Uri, context: vscode.ExtensionContext
     // Save the selected folder for next time
     await context.workspaceState.update('lastPublishFolder', path.dirname(publishPath));
 
-    // Show configuration options
-    const configuration = await vscode.window.showQuickPick(['Debug', 'Release'], {
+    // Show configuration options (dynamically discovered from the .csproj)
+    const configuration = await vscode.window.showQuickPick(getProjectConfigurations(uri.fsPath), {
         placeHolder: 'Select build configuration'
     });
 
@@ -1167,8 +1186,8 @@ async function publishToIIS(uri: vscode.Uri, context: vscode.ExtensionContext) {
         }
     }
 
-    // Select build configuration
-    const configuration = await vscode.window.showQuickPick(['Debug', 'Release'], {
+    // Select build configuration (dynamically discovered from the .csproj)
+    const configuration = await vscode.window.showQuickPick(getProjectConfigurations(uri.fsPath), {
         placeHolder: 'Select build configuration'
     });
 
