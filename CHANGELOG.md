@@ -2,6 +2,21 @@
 
 All notable changes to the "net-core-scaffolding" extension will be documented in this file.
 
+## [0.0.26] - 2026-10-04
+
+### Security
+- Fixed 15 dependency vulnerabilities (12 high, 3 moderate) in the build and packaging tooling:
+  - `braces` - stack-exhaustion DoS through deeply nested patterns (GHSA-vfj7-8cjw-p6xm). No patched release exists, so it was removed from the dependency tree by upgrading `@vscode/test-cli` to 0.0.15 and `@vscode/vsce` to 4.0.0
+  - `undici` - DoS, response splitting, cross-user cookie disclosure and TLS certificate validation bypass (GHSA-3wwx-pv8p-q78v, GHSA-w293-vg96-wgc3, GHSA-2jfj-6hjv-fm6j and 7 others); removed from the dependency tree by the `@vscode/vsce` 4.0.0 upgrade
+  - `fast-uri` - host confusion, SSRF and authority injection (GHSA-5jgf-p345-68v8, GHSA-f65p-4m7j-42xc, GHSA-fph4-wmhf-6fwf, GHSA-jqff-g426-hqxp, GHSA-qw65-cvwx-89v3, GHSA-hrr3-gc8f-f4qj); removed from the dependency tree by the `@vscode/vsce` 4.0.0 upgrade
+  - `markdown-it` - quadratic-time DoS with `linkify: true` (GHSA-253c-mchw-3w2r); removed from the dependency tree by the `@vscode/vsce` 4.0.0 upgrade
+  - `js-yaml` to 4.3.2 - unbounded CPU use for empty merge sources (GHSA-2883-xcg3-v3hh)
+  - `qs` to 6.16.0 - array-limit bypass and DoS via attacker-controlled `isBuffer` (GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g)
+- **✅ VERIFIED**: Zero vulnerabilities detected (`npm audit`)
+
+### Changed
+- Building and packaging the extension from source now requires Node.js 22 or newer (required by `@vscode/vsce` 4.x and `@vscode/test-cli` 0.0.15). No functional changes to the extension itself - the bundled code is identical to 0.0.25
+
 ## [0.0.25] - 2026-08-08
 
 ### Changed

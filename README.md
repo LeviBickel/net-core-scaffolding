@@ -188,7 +188,12 @@ Absolutely! This extension is fully compatible with `.pubxml` files created in V
 
 ## 📝 Release Notes
 
-### 0.0.25 (Latest)
+### 0.0.26 (Latest)
+- **🔒 SECURITY**: Resolved 15 dependency vulnerabilities (12 high, 3 moderate) in the extension's build and packaging tooling — `npm audit` reports zero vulnerabilities
+  - Upgraded `@vscode/vsce` to 4.0.0 and `@vscode/test-cli` to 0.0.15, and refreshed `js-yaml` and `qs` to patched releases
+  - No functional changes — the bundled extension code is identical to 0.0.25
+
+### 0.0.25
 - **✨ IMPROVEMENT**: Build configuration dropdown is now dynamic — "Publish to Folder" and "Publish to IIS..." read the configurations actually declared in the project's `.csproj` (`<Configurations>Debug;Release;Staging</Configurations>`, etc.) instead of a hardcoded `Debug`/`Release` list
   - Falls back to `Debug`/`Release` when a project doesn't declare `<Configurations>` — no change for projects that don't customize it
 
