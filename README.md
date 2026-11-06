@@ -188,7 +188,12 @@ Absolutely! This extension is fully compatible with `.pubxml` files created in V
 
 ## 📝 Release Notes
 
-### 0.0.26 (Latest)
+### 0.0.27 (Latest)
+- **🔒 SECURITY**: Resolved 17 dependency vulnerabilities (1 critical, 2 high, 13 moderate, 1 low) in the extension's build and packaging tooling — `npm audit` reports zero vulnerabilities
+  - Patched `shell-quote` (critical command injection), `@azure/msal-node` (high), `glob`, `minimatch`, `qs` and `serialize-javascript`
+  - No functional changes — the bundled extension code is identical to 0.0.26
+
+### 0.0.26
 - **🔒 SECURITY**: Resolved 15 dependency vulnerabilities (12 high, 3 moderate) in the extension's build and packaging tooling — `npm audit` reports zero vulnerabilities
   - Upgraded `@vscode/vsce` to 4.0.0 and `@vscode/test-cli` to 0.0.15, and refreshed `js-yaml` and `qs` to patched releases
   - No functional changes — the bundled extension code is identical to 0.0.25

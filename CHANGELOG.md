@@ -2,6 +2,21 @@
 
 All notable changes to the "net-core-scaffolding" extension will be documented in this file.
 
+## [0.0.27] - 2026-11-06
+
+### Security
+- Fixed 17 dependency vulnerabilities (1 critical, 2 high, 13 moderate, 1 low) in the build and packaging tooling:
+  - `shell-quote` 1.9.0 to 1.12.0 - `quote()` command injection via a line terminator after a `{ comment }` token (GHSA-pqg4-j6r4-53mv, critical)
+  - `@azure/msal-node` 6.0.1 to 7.2.0 (via `@azure/identity` 4.14.1, a `@vscode/vsce` dependency) - authorization code flow could disclose parameters to an attacker-controlled endpoint (high)
+  - `glob` 10.5.0/11.1.0/13.0.6 to 14.0.4 - AbortSignal cancellation bypass allows filesystem traversal after timeout (moderate); this affected `@vscode/test-cli`, `mocha`, `c8` and `test-exclude`
+  - `minimatch` 9.0.9/10.2.6 to 11.0.5 - DoS via globparts amplification (moderate); this affected `@typescript-eslint/*` and `@vscode/vsce`
+  - `qs` 6.16.0 to 6.17.1 - `stringify` DoS with `arrayFormat: 'comma'` (GHSA-6pq8-jhm2-2vcw, moderate)
+  - `serialize-javascript` 7.1.2 to 7.1.4 - XSS via unescaped `</script` (GHSA-m5mm-p8h7-m29v, low)
+- **✅ VERIFIED**: Zero vulnerabilities detected (`npm audit`)
+
+### Changed
+- The `glob` dependency was bumped to `^14.0.2`, and `overrides` now pin patched `glob`, `minimatch`, `serialize-javascript` and `shell-quote` releases. No functional changes to the extension itself - the bundled code is identical to 0.0.26
+
 ## [0.0.26] - 2026-10-04
 
 ### Security
