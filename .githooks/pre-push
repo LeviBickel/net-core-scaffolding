@@ -1,0 +1,9 @@
+#!/bin/sh
+# Runs the full test suite (type-check, lint, bundle, unit, smoke and packaging
+# tests in a real VS Code instance) before anything is pushed.
+# Bypass in an emergency with: git push --no-verify
+echo "pre-push: running npm test..."
+if ! npm test; then
+    echo "pre-push: tests failed, push aborted." >&2
+    exit 1
+fi

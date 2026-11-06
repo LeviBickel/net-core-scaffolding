@@ -2,6 +2,14 @@
 
 All notable changes to the "net-core-scaffolding" extension will be documented in this file.
 
+## [Unreleased]
+
+### Development
+- Added an automated test suite (`npm test`) that runs against the real shipped code: unit tests for the scaffolding/publishing helpers, smoke tests that load the bundled extension in VS Code and check every contributed command is registered, and packaging checks on the `.vsix` contents
+- Moved the VS Code-independent helpers from `extension.ts` into `helpers.ts` so they can be unit tested. No functional changes
+- Added a `pre-push` git hook (`.githooks/`, enabled automatically by `npm install`) that runs the test suite before every push
+- Upgraded `@vscode/test-electron` to 3.1.0 so tests can launch VS Code 1.110+ on macOS
+
 ## [0.0.27] - 2026-11-06
 
 ### Security
