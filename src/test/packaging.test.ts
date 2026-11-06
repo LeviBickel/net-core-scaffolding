@@ -10,7 +10,6 @@ const root = path.resolve(__dirname, '..', '..');
 suite('packaging', () => {
     test('the .vsix includes the bundle, manifest and guide, and no source or dependencies', async function () {
         this.timeout(30000);
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { listFiles } = require('@vscode/vsce') as { listFiles(options: { cwd: string }): Promise<string[]> };
         const files = await listFiles({ cwd: root });
 
